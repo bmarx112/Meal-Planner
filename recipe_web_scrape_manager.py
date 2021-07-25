@@ -34,4 +34,4 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
     scr = RecipeWebScrapeManager()
-    [print(i, r, sep=' : ') for i, r in scr.meal_categories.items()]
+    [print(i) for i, _ in scr.meal_categories.items()]
