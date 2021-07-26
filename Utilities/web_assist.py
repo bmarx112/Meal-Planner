@@ -3,7 +3,6 @@ import ssl
 from urllib.request import urlopen
 import re
 import warnings
-import csv
 from typing import Union
 
 
