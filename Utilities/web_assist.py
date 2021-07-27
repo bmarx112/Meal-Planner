@@ -5,6 +5,8 @@ import re
 import warnings
 from typing import Union
 
+from bs4.element import NavigableString
+
 
 def make_context() -> ssl.SSLContext:
     ctx = ssl.create_default_context()
@@ -46,9 +48,28 @@ def prepend_root_to_url(base_url: str, prefix: str) -> str:
         url = base_url
     return url
 
+
+def get_website_chunk_by_class(recipe: str, ctxt: ssl.SSLContext, tag: str, classname: Union[str, None] = None):
+    # Get soup for parsing
+    sp = get_html_for_soup(recipe, ctxt)
+    # Drill down to HTML section with full nutrition info
+    if classname is None:
+        sect = sp.find(tag)
+    else:
+        sect = sp.find(tag, class_=classname)
+    return sect
+
+
+def format_dict_from_soup(tag: NavigableString, substring: str) -> dict:
+    content = {}
+    #iterate through nutrient qty and %DV for nutrient
+    for span_vals in tag.find_all(class_=re.compile(substring)):
+        # add qty to dictionary. key is nutrient name
+        content[span_vals.get('class')[0]] = next(span_vals.stripped_strings)
+    return content
+
+
 # TODO: Make this function able to write dictionaries of any form/nesting to csv
-
-
 def write_to_csv(filename: str, data: dict, headers: Union[None, list]):
 
     with open(filename, 'w') as f:
