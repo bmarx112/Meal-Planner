@@ -1,8 +1,14 @@
 from collections import defaultdict
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
-            get_website_chunk_by_class, format_dict_from_soup)
+                                  get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
 from Objects.meal_info import MealInfo
+from Objects.meal_collection import MealCollection
+import logging
+
+__author__ = 'bmarx'
+
+logger = logging.getLogger(__name__)
 
 
 class RecipeWebScrapeManager:
@@ -32,101 +38,52 @@ class RecipeWebScrapeManager:
 
     @property
     def scraped_meal_info(self):
-        meals = []
+        if self._scraped_meal_info is None:
+            self._scraped_meal_info = self._compile_recipe_info()
+        return self._scraped_meal_info
+
+    def _compile_recipe_info(self) -> MealCollection:
+        meals_from_scrape = MealCollection()
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
-                print(recipe)
-                meal_name = self._get_recipe_name(recipe)
-                nutrition_data = self._get_nutrient_data_for_meal(recipe)
-                ingredient_data = self._get_cooking_ingredients(recipe)
-                instruction_dict = self._get_meal_instructions(recipe)
+                sp = get_html_for_soup(recipe, self._context)
+
+                meal_name = self._get_recipe_name(sp)
+                nutrition_data = self._get_nutrient_data_for_meal(sp)
+                ingredient_data = self._get_cooking_ingredients(sp)
+                instruction_dict = self._get_meal_instructions(sp)
+
                 meal = MealInfo(url=recipe, 
-                                 category=category,
-                                 name=meal_name,
-                                 ingredients=ingredient_data,
-                                 nutrition=nutrition_data,
-                                 instructions=instruction_dict)
-                meals.append(meal)
-        return meals
+                                category=category,
+                                name=meal_name,
+                                ingredients=ingredient_data,
+                                nutrition=nutrition_data,
+                                instructions=instruction_dict)
+                meals_from_scrape.add_meals_to_collection(meal)
+                logger.info(f'captured data for {meal.meal_name}')
 
-
-    def _get_nutrient_data_for_meal(self, recipe_link: str) -> dict:
-        content = {}
-        sect = get_website_chunk_by_class(recipe_link, 
-                                          self._context, 
-                                          'section', 
-                                          'recipe-nutrition ng-dialog component nutrition-section container')
-        # iterate through all 'div' sections that are a 'nutrient-row' class
-        for div in sect.find_all('div', class_='nutrition-row'):
-            # iterate through each nutrient NAME only
-            for span in div.find_all('span', class_='nutrient-name'):
-                #iterate through nutrient qty and %DV for nutrient
-                try:
-                    nutrient_values = format_dict_from_soup(div, 'value')
-                    content[next(span.stripped_strings)] = nutrient_values
-                except:
-                    print('couldnt parse %s' % recipe_link)
-                    continue
-        return content
-
-# TODO: refactor the find_all and for-loop into a separate function in web_assist
-    def _get_cooking_ingredients(self, recipe_link: str) -> list:
-        item_list = []
-        ingredients_table = get_website_chunk_by_class(recipe_link, 
-                                                       self._context, 
-                                                       'ul', 
-                                                       'ingredients-section')
-
-        ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
-
-        for item in ing_components:
-            item_list.append(item.string)
-        return item_list
-
-
-    def _get_meal_instructions(self, recipe_link: str) -> dict:
-        item_dict = {}
-        instructions_table = get_website_chunk_by_class(recipe_link, 
-                                                        self._context, 
-                                                        'ul', 
-                                                        'instructions-section')
-
-        inst_components = instructions_table.find_all('p')
-
-        for step, item in enumerate(inst_components):
-            item_dict[step+1] = item.string
-        return item_dict
-
-
-    def _get_recipe_name(self, recipe_link: str) -> str:
-        title = get_website_chunk_by_class(recipe_link,
-                                            self._context,
-                                            'h1',
-                                            'headline heading-content')
-        return title.string
-
+        return meals_from_scrape
 
     def _get_meal_categories(self) -> dict:
         recipe_categories = {}
         soup = get_html_for_soup(self.base_url, self._context)
-        tags = soup('a')
+        tags = soup('a', class_='see-all-heading')
+        if not tags:
+            logger.critical(f'Unable to find any categories in {self.base_url}!')
+            return recipe_categories
 
         for tag in tags:
-            try:
-                if tag.get('class')[0] in 'see-all-heading':
-                    link = tag.get('href')
-                    cat = find_in_url(link)
-                    recipe_categories[cat] = link
-            except:
-                continue
+            link = tag.get('href')
+            cat = find_in_url(link)
+            recipe_categories[cat] = link
+
         return recipe_categories
 
-
-    #TODO: Remove duplicate recipes that exist in multiple categories. Allow first occurence to remain.
+    # TODO: Remove duplicate recipes that exist in multiple categories. Allow first occurrence to remain.
     def _get_recipe_links(self):
         recipe_links_by_cat = defaultdict(set)
-
+        completed_parses = set()  # use a set to ensure we don't pick up duplicate recipes in different categories
         for cgy, lnk in self.meal_categories.items():
             page_num = 1
             valid_page = True
@@ -138,28 +95,93 @@ class RecipeWebScrapeManager:
                     # print(lnk + page)
                 except:
                     valid_page = False
+                    logger.info(f'Reached last viable page for {cgy}')
                     continue
 
                 tgs = option_page('a')
                 for tg in tgs:
                     try:
-                        if ((tg.get('class')[0] in 'card__titleLink manual-link-behavior'
-                             and tg.get('aria-hidden')[0] in 'true') or tg.get('class')[0] in 'tout__imageLink'):
+                        class_logic = tg.get('class')[0]
+                        aria_logic = tg.get('aria-hidden')[0]
+                        if ((class_logic in 'card__titleLink manual-link-behavior'
+                             and aria_logic in 'true') or class_logic in 'tout__imageLink'):
                             raw_link = tg.get('href')
 
                             if '/recipe/' in raw_link:
                                 corrected_link = prepend_root_to_url(raw_link, self.base_url)
-                                recipe_links_by_cat[cgy].add(corrected_link)
+                                rec_id = find_in_url(corrected_link, -2, False)
+                                if rec_id not in completed_parses:
+                                    recipe_links_by_cat[cgy].add(corrected_link)
+                                    completed_parses.add(rec_id)
+                                else:
+                                    logger.warning(f'{corrected_link} already exists')
                     except:
                         continue
                 page_num += 1
         return recipe_links_by_cat
 
+    @staticmethod
+    def _get_nutrient_data_for_meal(soup) -> dict:
+        content = {}
+        sect = get_website_chunk_by_class(soup,
+                                          'section',
+                                          'recipe-nutrition ng-dialog component nutrition-section container')
+        # iterate through all 'div' sections that are a 'nutrient-row' class
+        for div in sect.find_all('div', class_='nutrition-row'):
+            # iterate through each nutrient NAME only
+            for span in div.find_all('span', class_='nutrient-name'):
+                # iterate through nutrient qty and %DV for nutrient
+                try:
+                    nutrient_values = format_dict_from_soup(div, 'value')
+                    content[next(span.stripped_strings)] = nutrient_values
+                except:
+                    print('couldnt parse')
+                    continue
+        return content
+
+# TODO: refactor the find_all and for-loop into a separate function in web_assist
+    @staticmethod
+    def _get_cooking_ingredients(soup) -> list:
+        item_list = []
+        ingredients_table = get_website_chunk_by_class(soup,
+                                                       'ul',
+                                                       'ingredients-section')
+
+        ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
+
+        for item in ing_components:
+            item_list.append(item.string)
+        return item_list
+
+    @staticmethod
+    def _get_meal_instructions(soup) -> dict:
+        item_dict = {}
+        instructions_table = get_website_chunk_by_class(soup,
+                                                        'ul',
+                                                        'instructions-section')
+
+        inst_components = instructions_table.find_all('p')
+
+        for step, item in enumerate(inst_components):
+            item_dict[step+1] = item.string
+        return item_dict
+
+    @staticmethod
+    def _get_recipe_name(soup) -> str:
+        title = get_website_chunk_by_class(soup,
+                                           'h1',
+                                           'headline heading-content')
+        return title.string
+
 
 if __name__ == '__main__':
     scr = RecipeWebScrapeManager(page_limit=1)
-    the_list = scr.scraped_meal_info
-    print(the_list)
+    print(scr.scraped_meal_info)
+    print('debug')
+    # the_list = scr.scraped_meal_info
+    # [print(i.meal_name) for i in the_list]
+
+
     ''' with open('recipeURLs.csv', 'r') as file:
     csv_reader = csv.reader(file, delimiter=',')
     line_count = 0
