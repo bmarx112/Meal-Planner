@@ -1,10 +1,15 @@
 from collections import defaultdict
+
+from bs4 import BeautifulSoup
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
 from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
+from Objects.batch_meal_collection import BatchMealCollection
+from Data_Management.data_export import csv_path
 import logging
+import pandas as pd
 
 __author__ = 'bmarx'
 
@@ -15,12 +20,13 @@ class RecipeWebScrapeManager:
 
     def __init__(self,
                  url: str = 'https://www.allrecipes.com',
-                 page_limit: int = 100):
+                 page_limit: int = 100
+                 ):
         self.base_url = url
         self._website_page_limit = page_limit
         self._context = make_context()
-        self._meal_categories = None
         self._recipe_link_dict = None
+        self._meal_categories = None
         self._scraped_meal_info = None
         print('Initialized at', dt.now())
 
@@ -44,26 +50,45 @@ class RecipeWebScrapeManager:
 
     def _compile_recipe_info(self) -> MealCollection:
         meals_from_scrape = MealCollection()
+
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
-                sp = get_html_for_soup(recipe, self._context)
-
-                meal_name = self._get_recipe_name(sp)
-                nutrition_data = self._get_nutrient_data_for_meal(sp)
-                ingredient_data = self._get_cooking_ingredients(sp)
-                instruction_dict = self._get_meal_instructions(sp)
-
-                meal = MealInfo(url=recipe, 
-                                category=category,
-                                name=meal_name,
-                                ingredients=ingredient_data,
-                                nutrition=nutrition_data,
-                                instructions=instruction_dict)
-                meals_from_scrape.add_meals_to_collection(meal)
-                logger.info(f'captured data for {meal.meal_name}')
-
+                try:
+                    meal = self._add_scrape_to_collection(recipe, category)
+                    meals_from_scrape.add_meals_to_collection(meal)
+                except:
+                    print('FAILURE TO CAPTURE', recipe)
         return meals_from_scrape
+
+    def dump_scrape_data_to_csv(self, item_limit: int = 100, filename: str = csv_path) -> None:
+        meals_from_scrape = BatchMealCollection(item_limit=item_limit, path=filename)
+
+        for category, recipe_set in self.recipe_link_dict.items():
+            # iterate through each recipe in the set
+            for recipe in list(recipe_set):
+                try:
+                    meal = self._add_scrape_to_collection(recipe, category)
+                    meals_from_scrape.add_meals_to_collection(meal)
+                except:
+                    print('FAILURE TO CAPTURE', recipe)
+
+    def _add_scrape_to_collection(self, recipe: str, cat: str) -> MealInfo:
+
+        sp = get_html_for_soup(recipe, self._context)
+
+        meal_name = self._get_recipe_name(sp)
+        nutrition_data = self._get_nutrient_data_for_meal(sp)
+        ingredient_data = self._get_cooking_ingredients(sp)
+        instruction_dict = self._get_meal_instructions(sp)
+
+        meal = MealInfo(url=recipe, 
+                        category=cat,
+                        name=meal_name,
+                        ingredients=ingredient_data,
+                        nutrition=nutrition_data,
+                        instructions=instruction_dict)
+        return meal
 
     def _get_meal_categories(self) -> dict:
         recipe_categories = {}
@@ -80,7 +105,6 @@ class RecipeWebScrapeManager:
 
         return recipe_categories
 
-    # TODO: Remove duplicate recipes that exist in multiple categories. Allow first occurrence to remain.
     def _get_recipe_links(self):
         recipe_links_by_cat = defaultdict(set)
         completed_parses = set()  # use a set to ensure we don't pick up duplicate recipes in different categories
@@ -119,7 +143,23 @@ class RecipeWebScrapeManager:
                         continue
                 page_num += 1
         return recipe_links_by_cat
+    
+    def export_as_dataframe(self) -> pd.DataFrame:
+        structure = defaultdict(list)
 
+        for meal in self.scraped_meal_info.collection:
+            data = meal.meal_info_as_dict
+
+            for cat, val in data.items():
+                structure[cat].append(val)
+
+        frame = pd.DataFrame(structure)
+        return frame
+
+    def export_to_csv(self, path: str=csv_path):
+        df = self.export_as_dataframe()
+        df.to_csv(path)
+        
     @staticmethod
     def _get_nutrient_data_for_meal(soup) -> dict:
         content = {}
@@ -135,7 +175,7 @@ class RecipeWebScrapeManager:
                     nutrient_values = format_dict_from_soup(div, 'value')
                     content[next(span.stripped_strings)] = nutrient_values
                 except:
-                    print('couldnt parse')
+                    print('couldnt parse', span)
                     continue
         return content
 
@@ -175,18 +215,9 @@ class RecipeWebScrapeManager:
 
 
 if __name__ == '__main__':
-    scr = RecipeWebScrapeManager(page_limit=1)
-    print(scr.scraped_meal_info)
-    print('debug')
-    # the_list = scr.scraped_meal_info
+
+    scr = RecipeWebScrapeManager(page_limit=2)
+    scr.dump_scrape_data_to_csv(item_limit=3)
+    print('complete')
     # [print(i.meal_name) for i in the_list]
 
-
-    ''' with open('recipeURLs.csv', 'r') as file:
-    csv_reader = csv.reader(file, delimiter=',')
-    line_count = 0
-    for row in csv_reader:
-        if line_count == 0:
-            continue
-        else:
-            test_dict[row[0]] = row[1] '''

@@ -4,7 +4,6 @@ from urllib.request import urlopen
 import re
 import warnings
 from typing import Union
-
 from bs4.element import NavigableString
 
 
@@ -62,7 +61,20 @@ def format_dict_from_soup(tag: NavigableString, substring: str) -> dict:
     content = {}
     for span_vals in tag.find_all(class_=re.compile(substring)):
         # add qty to dictionary. key is nutrient name
-        content[span_vals.get('class')[0]] = next(span_vals.stripped_strings)
+
+        full_text = str(next(span_vals.stripped_strings))
+        stripped_text = full_text.replace(' ', '')
+
+        qty = re.findall(r'[0-9\.]+', stripped_text)
+        qty_value = qty[0]
+        try:
+            unit = re.findall(r'[^0-9\.]+', stripped_text)
+            unit_value = unit[0]
+        except:
+            unit_value = ''
+
+        content[span_vals.get('class')[0]] = [qty_value, unit_value]
+
     return content
 
 

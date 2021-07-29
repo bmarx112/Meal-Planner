@@ -1,3 +1,5 @@
+from Utilities.web_assist import find_in_url
+
 class MealInfo:
 
     def __init__(self,
@@ -8,6 +10,7 @@ class MealInfo:
                  nutrition: dict,
                  instructions: dict):
         self.url = url
+        self.recipe_id = find_in_url(self.url, -2, False)
         self.category = category
         self.meal_name = name
         self.ingredient_list = ingredients
@@ -26,4 +29,4 @@ class MealInfo:
         return comp
 
     def __repr__(self):
-        return self.meal_name
+        return f'{self.recipe_id}: {self.meal_name}'
