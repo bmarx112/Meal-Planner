@@ -1,6 +1,5 @@
 from collections import defaultdict
-
-from bs4 import BeautifulSoup
+from Utilities.helper_functions import format_mealcollection_as_list
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
@@ -23,7 +22,7 @@ class RecipeWebScrapeManager:
                  page_limit: int = 100
                  ):
         self.base_url = url
-        self._webbsite_page_limit = page_limit
+        self._website_page_limit = page_limit
         self._context = make_context()
         self._recipe_link_dict = None
         self._meal_categories = None
@@ -62,14 +61,26 @@ class RecipeWebScrapeManager:
         return meals_from_scrape
 
     def dump_scrape_data_to_csv(self, item_limit: int = 100, filename: str = csv_path) -> None:
-        meals_from_scrape = BatchMealCollection(item_limit=item_limit, path=filename)
+        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit, path=filename, write_to_file=True)
 
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
                 try:
                     meal = self._add_scrape_to_collection(recipe, category)
-                    meals_from_scrape.add_meals_to_collection(meal)
+                    meals_from_scrape_batch.add_meals_to_collection(meal)
+                except:
+                    print('FAILURE TO CAPTURE', recipe)
+
+    def dump_scrape_data_to_db(self, item_limit: int = 100, filename: str = csv_path) -> None:
+        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit, path=filename, write_to_db=True)
+
+        for category, recipe_set in self.recipe_link_dict.items():
+            # iterate through each recipe in the set
+            for recipe in list(recipe_set):
+                try:
+                    meal = self._add_scrape_to_collection(recipe, category)
+                    meals_from_scrape_batch.add_meals_to_collection(meal)
                 except:
                     print('FAILURE TO CAPTURE', recipe)
 
@@ -156,10 +167,6 @@ class RecipeWebScrapeManager:
         frame = pd.DataFrame(structure)
         return frame
 
-    def export_to_csv(self, path: str=csv_path):
-        df = self.export_as_dataframe()
-        df.to_csv(path)
-        
     @staticmethod
     def _get_nutrient_data_for_meal(soup) -> dict:
         content = {}
@@ -216,7 +223,8 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
 
-    scr = RecipeWebScrapeManager(page_limit=2)
-    scr.dump_scrape_data_to_csv(item_limit=3)
+    scr = RecipeWebScrapeManager(page_limit=1)
+    scr.dump_scrape_data_to_csv()
+    print('debug')
     # [print(i.meal_name) for i in the_list]
 
