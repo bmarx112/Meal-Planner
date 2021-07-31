@@ -26,5 +26,14 @@ class MealCollection:
         else:
             self.collection.append(addition)
 
+    def format_mealcollection_as_list(self):
+        formatted_data = []
+
+        for meal in self.collection:
+            data = meal.meal_info_as_dict
+            formatted_data.append(data)
+        
+        return formatted_data
+
     def __repr__(self):
         return f'Collection of {len(self.collection)} Meals'

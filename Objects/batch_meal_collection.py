@@ -1,6 +1,5 @@
 from genericpath import isfile
 from Objects.meal_collection import MealCollection
-from Utilities.helper_functions import format_mealcollection_as_list
 from Data_Management.MySQL.mysql_manager import MySqlManager
 from typing import Union, List
 from Objects.meal_info import MealInfo
@@ -54,7 +53,7 @@ class BatchMealCollection(MealCollection):
             
 
 
-    def dump_data_to_file(self) -> pd.DataFrame:
+    def dump_data_to_file(self):
         structure = defaultdict(list)
 
         for meal in self.collection:
@@ -72,7 +71,7 @@ class BatchMealCollection(MealCollection):
             frame.to_csv(self.path, mode='a', index=False, header=False)
 
     # TODO: build this method out and format data in an ingestible way for sqlmanager
-    def dump_data_to_db(self) -> pd.DataFrame:
+    def dump_data_to_db(self):
 
-        db_data = format_mealcollection_as_list(self.collection)
+        db_data = self.format_mealcollection_as_list()
         self.sql_mgr.bulk_insert_into_db(db_data)

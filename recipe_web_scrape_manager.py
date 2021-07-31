@@ -1,5 +1,4 @@
 from collections import defaultdict
-from Utilities.helper_functions import format_mealcollection_as_list
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
@@ -72,8 +71,8 @@ class RecipeWebScrapeManager:
                 except:
                     print('FAILURE TO CAPTURE', recipe)
 
-    def dump_scrape_data_to_db(self, item_limit: int = 100, filename: str = csv_path) -> None:
-        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit, path=filename, write_to_db=True)
+    def dump_scrape_data_to_db(self, item_limit: int = 100) -> None:
+        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit,write_to_db=True)
 
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
@@ -81,11 +80,11 @@ class RecipeWebScrapeManager:
                 try:
                     meal = self._add_scrape_to_collection(recipe, category)
                     meals_from_scrape_batch.add_meals_to_collection(meal)
-                except:
-                    print('FAILURE TO CAPTURE', recipe)
+                except Exception as e:
+                    logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
 
     def _add_scrape_to_collection(self, recipe: str, cat: str) -> MealInfo:
-
+        # Getting HTML for specific recipe page for scraping
         sp = get_html_for_soup(recipe, self._context)
 
         meal_name = self._get_recipe_name(sp)
@@ -197,7 +196,8 @@ class RecipeWebScrapeManager:
         ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
 
         for item in ing_components:
-            item_list.append(item.string)
+            item_str = str(item.string)
+            item_list.append(item_str)
         return item_list
 
     @staticmethod
@@ -210,7 +210,8 @@ class RecipeWebScrapeManager:
         inst_components = instructions_table.find_all('p')
 
         for step, item in enumerate(inst_components):
-            item_dict[step+1] = item.string
+            item_str = str(item.string)
+            item_dict[step+1] = item_str
         return item_dict
 
     @staticmethod
@@ -223,8 +224,8 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
 
-    scr = RecipeWebScrapeManager(page_limit=1)
-    scr.dump_scrape_data_to_csv()
+    scr = RecipeWebScrapeManager(page_limit=10)
+    scr.dump_scrape_data_to_db()
     print('debug')
     # [print(i.meal_name) for i in the_list]
 

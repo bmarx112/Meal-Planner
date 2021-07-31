@@ -9,10 +9,10 @@ class MealInfo:
                  ingredients: list,
                  nutrition: dict,
                  instructions: dict):
-        self.url = url
-        self.recipe_id = find_in_url(self.url, -2, False)
+        self.url = str(url)
+        self.recipe_id = int(find_in_url(self.url, -2, False))
         self.category = category
-        self.meal_name = name
+        self.meal_name = str(name)
         self.ingredient_list = ingredients
         self.nutrition_facts = nutrition
         self.cooking_instructions = instructions

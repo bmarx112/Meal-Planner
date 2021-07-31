@@ -1,10 +1,11 @@
-from Objects.meal_collection import MealCollection
 import mysql.connector
 from mysql.connector.connection import MySQLConnection
-from Queries.MySql_init import init_query
-from Queries.MySql_insert import insert_meals, insert_ingredients, insert_instructions, insert_nutrition
+from Data_Management.MySQL.Queries.MySql_init import init_query
+from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ingredients, 
+                                                        insert_instructions, insert_nutrition)
 from typing import Union
 import logging
+import datetime as dt
 
 __author__ = 'bmarx'
 
@@ -47,38 +48,84 @@ class MySqlManager:
     
     def rebuild_database(self) -> None:
         try:
+            # self.cursor.execute(destroy_db_query, multi=True)
             self.cursor.execute(init_query, multi=True)
             logger.info('Successfully built database!')
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
-    # TODO: Create loops to capture data for each table
-    def bulk_insert_to_db(self, data: list) -> None:
+    def bulk_insert_into_db(self, data: list[dict]) -> None:
+        timestamp = dt.datetime.now()
+        # Data: List of dicts
+        try:
+            self._bulk_insert_meals(data, timestamp)
+        except Exception as e:
+            print('first method failed\n',e)
+        try:
+            self._bulk_insert_ingredients(data, timestamp)
+            self._bulk_insert_instructions(data, timestamp)
+            self._bulk_insert_nutrition(data, timestamp)
+            self.mysql_connection.commit()
+            logger.warning(f'successfully uploaded {len(data)} items.') # TODO: make this info again after testing
+        except Exception as e:
+            logger.critical(f'Unable to load data!\nError: {e}')
+
+    def _bulk_insert_meals(self, data, time: dt.datetime) -> None:
+        injection = []
+        for meal in data:
+            mealdata = (
+                        meal['recipe_id'],
+                        meal['meal_name'],
+                        meal['url'],
+                        time
+                        )
+            injection.append(mealdata)
+
+        self.cursor.executemany(insert_meals, injection)
         
 
-        self._bulk_insert_meals()
-        self._bulk_insert_ingredients()
-        self._bulk_insert_instructions()
-        self._bulk_insert_nutrition()
-        
-        pass
+    def _bulk_insert_ingredients(self, data, time: dt.datetime) -> None:
+        injection = []
+        for ing in data:
+            for element in ing['ingredient_list']:
+                mealdata = (
+                            ing['recipe_id'],
+                            element,
+                            time
+                            )
+                injection.append(mealdata)
+        self.cursor.executemany(insert_ingredients, injection)
 
-    def _bulk_insert_meals(self, data) -> None:
+    def _bulk_insert_nutrition(self, data, time: dt.datetime) -> None:
+        injection = []
+        for nut in data:
+            for name, value in nut['nutrition_facts'].items():
+                # dict of dict of list
+                quantity =  float(value['nutrient-value'][0])
+                mealdata = (
+                            nut['recipe_id'],
+                            name,
+                            quantity,
+                            value['nutrient-value'][1],
+                            time
+                            )
+                injection.append(mealdata)
+        self.cursor.executemany(insert_nutrition, injection)
 
-        self.cursor.executemany(insert_meals)
-        pass
+    def _bulk_insert_instructions(self, data, time: dt.datetime) -> None:
+        injection = []
+        for inst in data:
+            for num, step in inst['cooking_instructions'].items():
+                int_num = int(num)
+                mealdata = (
+                            inst['recipe_id'],
+                            int_num,
+                            step,
+                            time
+                            )
+                injection.append(mealdata)
 
-    def _bulk_insert_ingredients(self) -> None:
-        self.cursor.executemany(insert_ingredients)
-        pass
-
-    def _bulk_insert_nutrition(self) -> None:
-        self.cursor.executemany(insert_nutrition)
-        pass
-
-    def _bulk_insert_instructions(self) -> None:
-        self.cursor.executemany(insert_instructions)
-        pass
+        self.cursor.executemany(insert_instructions, injection)
 
 
 if __name__ == '__main__':
