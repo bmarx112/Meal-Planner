@@ -7,7 +7,7 @@ from datetime import datetime as dt
 from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Objects.batch_meal_collection import BatchMealCollection
-from Data_Management.data_export import csv_path
+from Data_Management.CSV.data_export import csv_path
 import logging
 import pandas as pd
 
@@ -23,7 +23,7 @@ class RecipeWebScrapeManager:
                  page_limit: int = 100
                  ):
         self.base_url = url
-        self._website_page_limit = page_limit
+        self._webbsite_page_limit = page_limit
         self._context = make_context()
         self._recipe_link_dict = None
         self._meal_categories = None
@@ -218,6 +218,5 @@ if __name__ == '__main__':
 
     scr = RecipeWebScrapeManager(page_limit=2)
     scr.dump_scrape_data_to_csv(item_limit=3)
-    print('complete')
     # [print(i.meal_name) for i in the_list]
 

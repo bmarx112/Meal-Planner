@@ -1,4 +1,3 @@
-from collections import defaultdict
 from Objects.meal_info import MealInfo
 from typing import List, Union
 import logging

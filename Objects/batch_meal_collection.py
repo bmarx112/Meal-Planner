@@ -4,7 +4,7 @@ from typing import Union, List
 from Objects.meal_info import MealInfo
 from collections import defaultdict
 import pandas as pd
-from Data_Management.data_export import csv_path
+from Data_Management.CSV.data_export import csv_path
 import logging
 
 __author__ = 'bmarx'
