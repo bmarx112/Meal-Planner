@@ -70,6 +70,7 @@ class RecipeWebScrapeManager:
                     meals_from_scrape_batch.add_meals_to_collection(meal)
                 except:
                     print('FAILURE TO CAPTURE', recipe)
+        meals_from_scrape_batch.dump_data_to_file()
 
     def dump_scrape_data_to_db(self, item_limit: int = 100) -> None:
         meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit,write_to_db=True)
@@ -82,6 +83,7 @@ class RecipeWebScrapeManager:
                     meals_from_scrape_batch.add_meals_to_collection(meal)
                 except Exception as e:
                     logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
+        meals_from_scrape_batch.dump_data_to_db()
 
     def _add_scrape_to_collection(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
@@ -133,6 +135,8 @@ class RecipeWebScrapeManager:
                     continue
 
                 tgs = option_page('a')
+                debug = option_page('a', class_='card__titleLink manual-link-behavior')
+                print('e')
                 for tg in tgs:
                     try:
                         class_logic = tg.get('class')[0]
@@ -140,6 +144,9 @@ class RecipeWebScrapeManager:
                         if ((class_logic in 'card__titleLink manual-link-behavior'
                              and aria_logic in 'true') or class_logic in 'tout__imageLink'):
                             raw_link = tg.get('href')
+                            if 'jamaican-jerked-chicken' in raw_link:
+                                print('FOUND THE CHICKEN!!!')
+                                pass
 
                             if '/recipe/' in raw_link:
                                 corrected_link = prepend_root_to_url(raw_link, self.base_url)
@@ -152,6 +159,7 @@ class RecipeWebScrapeManager:
                     except:
                         continue
                 page_num += 1
+            print(len(list(recipe_links_by_cat[cgy])))
         return recipe_links_by_cat
     
     def export_as_dataframe(self) -> pd.DataFrame:

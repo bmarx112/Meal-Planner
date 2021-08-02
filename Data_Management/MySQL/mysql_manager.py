@@ -11,7 +11,7 @@ __author__ = 'bmarx'
 
 logger = logging.getLogger(__name__)
 
-
+# TODO: Consider adding meal category as a field in Meals table?
 class MySqlManager:
 
     def __init__(self,
