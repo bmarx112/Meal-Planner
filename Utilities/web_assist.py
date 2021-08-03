@@ -5,7 +5,11 @@ import re
 import warnings
 from typing import Union
 from bs4.element import NavigableString
+import logging
 
+__author__ = 'bmarx'
+
+logger = logging.getLogger(__name__)
 
 def make_context() -> ssl.SSLContext:
     ctx = ssl.create_default_context()
@@ -13,13 +17,14 @@ def make_context() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
 
-
 def get_html_for_soup(url: str, ct, suffix: str = ''):
     formatted_url = url + suffix
-    html = urlopen(formatted_url, context=ct).read()
+    try:
+        html = urlopen(formatted_url, context=ct).read()
+    except Exception as e:
+        logger.critical(f'Failed to retrieve HTML.\nError: {e}')
     soup = BeautifulSoup(html, "html.parser")
     return soup
-
 
 def find_in_url(url: str,
                 item: int = -1,
@@ -38,7 +43,6 @@ def find_in_url(url: str,
 
     return target
 
-
 def prepend_root_to_url(base_url: str, prefix: str) -> str:
 
     if base_url[0] == '/':
@@ -47,7 +51,6 @@ def prepend_root_to_url(base_url: str, prefix: str) -> str:
         url = base_url
     return url
 
-
 def get_website_chunk_by_class(soup: BeautifulSoup, tag: str, classname: Union[str, None] = None):
 
     if classname is None:
@@ -55,7 +58,6 @@ def get_website_chunk_by_class(soup: BeautifulSoup, tag: str, classname: Union[s
     else:
         sect = soup.find(tag, class_=classname)
     return sect
-
 
 def format_dict_from_soup(tag: NavigableString, substring: str) -> dict:
     content = {}
@@ -76,7 +78,6 @@ def format_dict_from_soup(tag: NavigableString, substring: str) -> dict:
         content[span_vals.get('class')[0]] = [qty_value, unit_value]
 
     return content
-
 
 # TODO: Make this function able to write dictionaries of any form/nesting to csv
 def write_to_csv(filename: str, data: dict, headers: Union[None, list]):
