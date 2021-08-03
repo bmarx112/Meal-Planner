@@ -128,36 +128,41 @@ class RecipeWebScrapeManager:
                 page = '?page=' + str(page_num)
                 try:
                     option_page = get_html_for_soup(lnk, self._context, page)
-                    # print(lnk + page)
+                    debug = option_page('a', class_='tout__imageLink')
+                    #print(debug)
                 except:
                     valid_page = False
                     logger.info(f'Reached last viable page for {cgy}')
                     continue
 
                 tgs = option_page('a')
-                debug = option_page('a', class_='card__titleLink manual-link-behavior')
-                print('e')
                 for tg in tgs:
-                    try:
-                        class_logic = tg.get('class')[0]
-                        aria_logic = tg.get('aria-hidden')[0]
-                        if ((class_logic in 'card__titleLink manual-link-behavior'
-                             and aria_logic in 'true') or class_logic in 'tout__imageLink'):
-                            raw_link = tg.get('href')
-                            if 'jamaican-jerked-chicken' in raw_link:
-                                print('FOUND THE CHICKEN!!!')
-                                pass
 
-                            if '/recipe/' in raw_link:
-                                corrected_link = prepend_root_to_url(raw_link, self.base_url)
-                                rec_id = find_in_url(corrected_link, -2, False)
-                                if rec_id not in completed_parses:
-                                    recipe_links_by_cat[cgy].add(corrected_link)
-                                    completed_parses.add(rec_id)
-                                else:
-                                    logger.warning(f'{corrected_link} already exists')
+                    try:
+                        class_logic = tg.get('class')[0]  # Class is needed, so skip if not there
                     except:
                         continue
+                    try:
+                        aria_logic = tg.get('aria-hidden')[0]  # Aria logic only needed in page one.
+                    except:
+                        aria_logic = 'NA'
+                    if ((class_logic in 'card__titleLink manual-link-behavior' and aria_logic in 'true') 
+                         or class_logic in 'tout__imageLink'):
+
+                        raw_link = tg.get('href')
+                        #if 'jamaican-jerked-chicken' in raw_link:
+                            #print('FOUND THE CHICKEN!!!')
+                            #pass
+
+                        if '/recipe/' in raw_link:
+                            corrected_link = prepend_root_to_url(raw_link, self.base_url)
+                            rec_id = find_in_url(corrected_link, -2, False)
+                            if rec_id not in completed_parses:
+                                recipe_links_by_cat[cgy].add(corrected_link)
+                                completed_parses.add(rec_id)
+                            else:
+                                logger.info(f'{corrected_link} already exists')
+
                 page_num += 1
             print(len(list(recipe_links_by_cat[cgy])))
         return recipe_links_by_cat
