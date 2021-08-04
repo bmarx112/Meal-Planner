@@ -5,7 +5,6 @@ from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ing
                                                         insert_instructions, insert_nutrition)
 from typing import Union
 import logging
-import datetime as dt
 
 __author__ = 'bmarx'
 
@@ -48,20 +47,18 @@ class MySqlManager:
 
     def rebuild_database(self) -> None:
         try:
-            # self._destroy_database()
             self.cursor.execute(init_query, multi=True)
             logger.info('Successfully built database!')
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
     def bulk_insert_into_db(self, data: list[dict]) -> None:
-        timestamp = dt.datetime.now()
         # Data: List of dicts
         try:
-            self._bulk_insert_meals(data, timestamp)
-            self._bulk_insert_ingredients(data, timestamp)
-            self._bulk_insert_instructions(data, timestamp)
-            self._bulk_insert_nutrition(data, timestamp)
+            self._bulk_insert_meals(data)
+            self._bulk_insert_ingredients(data)
+            self._bulk_insert_instructions(data)
+            self._bulk_insert_nutrition(data)
             self.mysql_connection.commit()
 
             logger.info(f'successfully uploaded {len(data)} items.') 
@@ -80,7 +77,6 @@ class MySqlManager:
 
         self.cursor.executemany(insert_meals, injection)
         
-
     def _bulk_insert_ingredients(self, data) -> None:
         injection = []
         for ing in data:

@@ -1,4 +1,7 @@
 
+# I want to add foreign keys to the tables, but phpmyadmin gets mad at me when I try
+# to execute everything at once with those constraints...
+
 init_query = '''
 
     DROP TABLE IF EXISTS Meal;

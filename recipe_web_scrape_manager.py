@@ -5,10 +5,8 @@ from datetime import datetime as dt
 from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Objects.batch_meal_collection import BatchMealCollection
-from Data_Management.CSV.data_export import csv_path
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
-import pandas as pd
 
 __author__ = 'bmarx'
 
@@ -49,44 +47,25 @@ class RecipeWebScrapeManager:
 
     def _compile_recipe_info(self) -> MealCollection:
         meals_from_scrape = MealCollection()
-
-        for category, recipe_set in self.recipe_link_dict.items():
-            # iterate through each recipe in the set
-            for recipe in list(recipe_set):
-                try:
-                    meal = self._add_scrape_to_collection(recipe, category)
-                    meals_from_scrape.add_meals_to_collection(meal)
-                except:
-                    print('FAILURE TO CAPTURE', recipe)
+        self._get_recipe_data(meals_from_scrape)
         return meals_from_scrape
-
-    def dump_scrape_data_to_csv(self, item_limit: int = 100, filename: str = csv_path) -> None:
-        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit, path=filename, write_to_file=True)
-
-        for category, recipe_set in self.recipe_link_dict.items():
-            # iterate through each recipe in the set
-            for recipe in list(recipe_set):
-                try:
-                    meal = self._add_scrape_to_collection(recipe, category)
-                    meals_from_scrape_batch.add_meals_to_collection(meal)
-                except:
-                    print('FAILURE TO CAPTURE', recipe)
-        meals_from_scrape_batch.dump_data_to_file()
 
     def dump_scrape_data_to_db(self, item_limit: int = 100) -> None:
         meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit,write_to_db=True)
-        logger.warning('Starting DB Dump process')
+        self._get_recipe_data(meals_from_scrape_batch)
+        meals_from_scrape_batch.dump_data_to_db()
+
+    def _get_recipe_data(self, Meal_Col):
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
                 try:
-                    meal = self._add_scrape_to_collection(recipe, category)
-                    meals_from_scrape_batch.add_meals_to_collection(meal)
+                    meal = self._format_data_as_meal(recipe, category)
+                    Meal_Col.add_meals_to_collection(meal)
                 except Exception as e:
                     logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
-        meals_from_scrape_batch.dump_data_to_db()
 
-    def _add_scrape_to_collection(self, recipe: str, cat: str) -> MealInfo:
+    def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
         sp = get_html_for_soup(recipe, self._context)
 
@@ -129,8 +108,6 @@ class RecipeWebScrapeManager:
                 page = '?page=' + str(page_num)
                 try:
                     option_page = get_html_for_soup(lnk, self._context, page)
-                    debug = option_page('a', class_='tout__imageLink')
-                    #print(debug)
                 except:
                     valid_page = False
                     logger.info(f'Reached last viable page for {cgy}')
@@ -162,20 +139,8 @@ class RecipeWebScrapeManager:
                                 logger.info(f'{corrected_link} already exists')
 
                 page_num += 1
-            print(len(list(recipe_links_by_cat[cgy])))
+            # print(len(list(recipe_links_by_cat[cgy])))
         return recipe_links_by_cat
-    
-    def export_as_dataframe(self) -> pd.DataFrame:
-        structure = defaultdict(list)
-
-        for meal in self.scraped_meal_info.collection:
-            data = meal.meal_info_as_dict
-
-            for cat, val in data.items():
-                structure[cat].append(val)
-
-        frame = pd.DataFrame(structure)
-        return frame
 
     @staticmethod
     def _get_nutrient_data_for_meal(soup) -> dict:
@@ -189,8 +154,10 @@ class RecipeWebScrapeManager:
             for span in div.find_all('span', class_='nutrient-name'):
                 # iterate through nutrient qty and %DV for nutrient
                 try:
+                    nutr_name = next(span.stripped_strings)
+                    rm_colon_name = nutr_name.replace(':','')
                     nutrient_values = format_dict_from_soup(div, 'value')
-                    content[next(span.stripped_strings)] = nutrient_values
+                    content[rm_colon_name] = nutrient_values
                 except:
                     print('couldnt parse', span)
                     continue
@@ -238,4 +205,4 @@ if __name__ == '__main__':
     test_connect.rebuild_database()
     scr = RecipeWebScrapeManager(page_limit=1)
     scr.dump_scrape_data_to_db()
-    print('debug')
+    # print(scr.scraped_meal_info)
