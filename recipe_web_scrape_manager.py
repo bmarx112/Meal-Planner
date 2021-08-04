@@ -6,6 +6,7 @@ from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Objects.batch_meal_collection import BatchMealCollection
 from Data_Management.CSV.data_export import csv_path
+from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import pandas as pd
 
@@ -74,7 +75,7 @@ class RecipeWebScrapeManager:
 
     def dump_scrape_data_to_db(self, item_limit: int = 100) -> None:
         meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit,write_to_db=True)
-
+        logger.warning('Starting DB Dump process')
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
@@ -150,9 +151,6 @@ class RecipeWebScrapeManager:
                          or class_logic in 'tout__imageLink'):
 
                         raw_link = tg.get('href')
-                        #if 'jamaican-jerked-chicken' in raw_link:
-                            #print('FOUND THE CHICKEN!!!')
-                            #pass
 
                         if '/recipe/' in raw_link:
                             corrected_link = prepend_root_to_url(raw_link, self.base_url)
@@ -236,9 +234,8 @@ class RecipeWebScrapeManager:
 
 
 if __name__ == '__main__':
-
-    scr = RecipeWebScrapeManager(page_limit=10)
+    test_connect = MySqlManager()
+    test_connect.rebuild_database()
+    scr = RecipeWebScrapeManager(page_limit=1)
     scr.dump_scrape_data_to_db()
     print('debug')
-    # [print(i.meal_name) for i in the_list]
-

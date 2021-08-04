@@ -38,7 +38,7 @@ class BatchMealCollection(MealCollection):
         else:
             self.collection.append(addition)
         
-        if len(self.collection) == self.class_capacity:
+        if len(self.collection) >= self.class_capacity:
 
             if self._to_file:
                 self.dump_data_to_file()
@@ -49,10 +49,7 @@ class BatchMealCollection(MealCollection):
                 logger.info(f'Dumped contents to {self.sql_mgr.database}')
 
             self.collection = []
-            print('Emptied!')
             
-
-
     def dump_data_to_file(self):
         structure = defaultdict(list)
 
@@ -70,7 +67,6 @@ class BatchMealCollection(MealCollection):
         else:
             frame.to_csv(self.path, mode='a', index=False, header=False)
 
-    # TODO: build this method out and format data in an ingestible way for sqlmanager
     def dump_data_to_db(self):
 
         db_data = self.format_mealcollection_as_list()

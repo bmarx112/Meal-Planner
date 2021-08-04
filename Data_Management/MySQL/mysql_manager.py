@@ -45,10 +45,10 @@ class MySqlManager:
         if self._cursor is None:
             self._cursor = self.mysql_connection.cursor()
         return self._cursor
-    
+
     def rebuild_database(self) -> None:
         try:
-            # self.cursor.execute(destroy_db_query, multi=True)
+            # self._destroy_database()
             self.cursor.execute(init_query, multi=True)
             logger.info('Successfully built database!')
         except Exception as e:
@@ -59,44 +59,40 @@ class MySqlManager:
         # Data: List of dicts
         try:
             self._bulk_insert_meals(data, timestamp)
-        except Exception as e:
-            print('first method failed\n',e)
-        try:
             self._bulk_insert_ingredients(data, timestamp)
             self._bulk_insert_instructions(data, timestamp)
             self._bulk_insert_nutrition(data, timestamp)
             self.mysql_connection.commit()
-            logger.warning(f'successfully uploaded {len(data)} items.') # TODO: make this info again after testing
+
+            logger.info(f'successfully uploaded {len(data)} items.') 
         except Exception as e:
             logger.critical(f'Unable to load data!\nError: {e}')
 
-    def _bulk_insert_meals(self, data, time: dt.datetime) -> None:
+    def _bulk_insert_meals(self, data) -> None:
         injection = []
         for meal in data:
             mealdata = (
                         meal['recipe_id'],
                         meal['meal_name'],
-                        meal['url'],
-                        time
+                        meal['url']
                         )
             injection.append(mealdata)
 
         self.cursor.executemany(insert_meals, injection)
         
 
-    def _bulk_insert_ingredients(self, data, time: dt.datetime) -> None:
+    def _bulk_insert_ingredients(self, data) -> None:
         injection = []
         for ing in data:
             for element in ing['ingredient_list']:
                 mealdata = (
                             ing['recipe_id'],
-                            element,
-                            time
+                            element
                             )
                 injection.append(mealdata)
         self.cursor.executemany(insert_ingredients, injection)
 
-    def _bulk_insert_nutrition(self, data, time: dt.datetime) -> None:
+    def _bulk_insert_nutrition(self, data) -> None:
         injection = []
         for nut in data:
             for name, value in nut['nutrition_facts'].items():
@@ -106,13 +102,12 @@ class MySqlManager:
                             nut['recipe_id'],
                             name,
                             quantity,
-                            value['nutrient-value'][1],
-                            time
+                            value['nutrient-value'][1]
                             )
                 injection.append(mealdata)
         self.cursor.executemany(insert_nutrition, injection)
 
-    def _bulk_insert_instructions(self, data, time: dt.datetime) -> None:
+    def _bulk_insert_instructions(self, data) -> None:
         injection = []
         for inst in data:
             for num, step in inst['cooking_instructions'].items():
@@ -120,8 +115,7 @@ class MySqlManager:
                 mealdata = (
                             inst['recipe_id'],
                             int_num,
-                            step,
-                            time
+                            step
                             )
                 injection.append(mealdata)
 
