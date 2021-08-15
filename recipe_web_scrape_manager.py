@@ -205,4 +205,3 @@ if __name__ == '__main__':
     test_connect.rebuild_database()
     scr = RecipeWebScrapeManager(page_limit=1)
     scr.dump_scrape_data_to_db()
-    # print(scr.scraped_meal_info)

@@ -71,6 +71,7 @@ class MySqlManager:
             mealdata = (
                         meal['recipe_id'],
                         meal['meal_name'],
+                        meal['category'],
                         meal['url']
                         )
             injection.append(mealdata)

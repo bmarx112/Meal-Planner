@@ -8,6 +8,7 @@ init_query = '''
     CREATE TABLE Meal (
             Recipe_Id     INT NOT NULL,
             Meal_Name   TEXT,
+            Meal_Category   TEXT,
             Meal_URL    TEXT,
             Date_Uploaded   timestamp not null default current_timestamp,
             PRIMARY KEY (Recipe_Id)
