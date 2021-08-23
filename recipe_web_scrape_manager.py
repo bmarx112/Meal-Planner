@@ -2,9 +2,9 @@ from collections import defaultdict
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
+from typing import Union
 from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
-from Objects.batch_meal_collection import BatchMealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 
@@ -17,7 +17,8 @@ class RecipeWebScrapeManager:
 
     def __init__(self,
                  url: str = 'https://www.allrecipes.com',
-                 page_limit: int = 100
+                 page_limit: int = 100,
+                 choose_cats: bool = False
                  ):
         self.base_url = url
         self._website_page_limit = page_limit
@@ -25,6 +26,7 @@ class RecipeWebScrapeManager:
         self._recipe_link_dict = None
         self._meal_categories = None
         self._scraped_meal_info = None
+        self._choose_cats = choose_cats
         print('Initialized at', dt.now())
 
     @property
@@ -39,23 +41,12 @@ class RecipeWebScrapeManager:
             self._recipe_link_dict = self._get_recipe_links()
         return self._recipe_link_dict
 
-    @property
-    def scraped_meal_info(self):
-        if self._scraped_meal_info is None:
-            self._scraped_meal_info = self._compile_recipe_info()
-        return self._scraped_meal_info
+    def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
+        meals_from_scrape = self._upload_to_mysql(db, dump_limit)
+        meals_from_scrape.dump_data_to_db()
 
-    def _compile_recipe_info(self) -> MealCollection:
-        meals_from_scrape = MealCollection()
-        self._get_recipe_data(meals_from_scrape)
-        return meals_from_scrape
-
-    def dump_scrape_data_to_db(self, item_limit: int = 100) -> None:
-        meals_from_scrape_batch = BatchMealCollection(item_limit=item_limit,write_to_db=True)
-        self._get_recipe_data(meals_from_scrape_batch)
-        meals_from_scrape_batch.dump_data_to_db()
-
-    def _get_recipe_data(self, Meal_Col):
+    def _upload_to_mysql(self, db: MySqlManager, dump_limit: Union[None, int] = 100):
+        Meal_Col = MealCollection(item_limit = dump_limit, db = db)
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
@@ -64,6 +55,7 @@ class RecipeWebScrapeManager:
                     Meal_Col.add_meals_to_collection(meal)
                 except Exception as e:
                     logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
+        return Meal_Col
 
     def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
@@ -93,7 +85,12 @@ class RecipeWebScrapeManager:
         for tag in tags:
             link = tag.get('href')
             cat = find_in_url(link)
-            recipe_categories[cat] = link
+            if self._choose_cats:
+                add = input(f'Include recipes in: {cat}? Y/N')
+                if add.lower() == 'y':
+                    recipe_categories[cat] = link
+            else:
+                recipe_categories[cat] = link
 
         return recipe_categories
 
@@ -137,9 +134,8 @@ class RecipeWebScrapeManager:
                                 completed_parses.add(rec_id)
                             else:
                                 logger.info(f'{corrected_link} already exists')
-
+                print(f'{cgy}: {len(list(recipe_links_by_cat[cgy]))} so far!')
                 page_num += 1
-            # print(len(list(recipe_links_by_cat[cgy])))
         return recipe_links_by_cat
 
     @staticmethod
@@ -148,14 +144,24 @@ class RecipeWebScrapeManager:
         sect = get_website_chunk_by_class(soup,
                                           'section',
                                           'recipe-nutrition ng-dialog component nutrition-section container')
+        cal_sect = get_website_chunk_by_class(sect,
+                                          'span',
+                                          'semi-bold')
+        # TODO: Change this quick and dirty method of grabbing calories into something more sustainable
+        cal_name = cal_sect.next.replace(':','')
+        cal_vals = [cal_sect.nextSibling.replace(' ',''), '']
+        cal_load = {'nutrient-value': cal_vals}
+        content[cal_name] = cal_load
         # iterate through all 'div' sections that are a 'nutrient-row' class
         for div in sect.find_all('div', class_='nutrition-row'):
             # iterate through each nutrient NAME only
             for span in div.find_all('span', class_='nutrient-name'):
                 # iterate through nutrient qty and %DV for nutrient
                 try:
+                    # Get nutrient name
                     nutr_name = next(span.stripped_strings)
                     rm_colon_name = nutr_name.replace(':','')
+                    # Get Nutrient Data
                     nutrient_values = format_dict_from_soup(div, 'value')
                     content[rm_colon_name] = nutrient_values
                 except:
@@ -202,6 +208,6 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
     test_connect = MySqlManager()
-    test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=1)
-    scr.dump_scrape_data_to_db()
+    # test_connect.rebuild_database()
+    scr = RecipeWebScrapeManager(page_limit=100, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=1, db = test_connect)

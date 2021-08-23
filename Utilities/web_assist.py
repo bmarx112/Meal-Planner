@@ -22,7 +22,7 @@ def get_html_for_soup(url: str, ct, suffix: str = ''):
     try:
         html = urlopen(formatted_url, context=ct).read()
     except Exception as e:
-        logger.critical(f'Failed to retrieve HTML.\nError: {e}')
+        logger.critical(f'Failed to retrieve HTML for: {formatted_url}.\nError: {e}')
     soup = BeautifulSoup(html, "html.parser")
     return soup
 

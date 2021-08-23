@@ -1,23 +1,30 @@
+from genericpath import isfile
+from Data_Management.MySQL.mysql_manager import MySqlManager
+from typing import Union, List
 from Objects.meal_info import MealInfo
-from typing import List, Union
+from Data_Management.CSV.data_export import csv_path
 import logging
 
 __author__ = 'bmarx'
 
 logger = logging.getLogger(__name__)
 
-class MealCollection:
+'''
+Version of MealCollection that dumps its contents to a database once a certain
+amount of items have been added. Purpose is to avoid using all the RAM 
+when a lot of data is being scraped.
+'''
+
+class MealCollection():
 
     def __init__(self,
-                 meal_list: Union[None, List[MealInfo]] = None):
+                 item_limit: None,
+                 db: MySqlManager,
+                 meal_list: Union[None, List[MealInfo]] = None
+                 ):
+        self.class_capacity = item_limit or 1000000 # arbitrarily high limit
         self.collection = meal_list or []
-        self._frame = None
-
-    @property
-    def frame(self):
-        if self._frame is None:
-            self._frame = self.export_as_dataframe()
-        return self._frame
+        self.sql_mgr = db
 
     def add_meals_to_collection(self, addition: Union[MealInfo, List[MealInfo]]):
         # accepts lists and single values. need to use different methods for either case
@@ -25,6 +32,17 @@ class MealCollection:
             self.collection.extend(addition)
         else:
             self.collection.append(addition)
+        
+        if len(self.collection) >= self.class_capacity:
+
+            self.dump_data_to_db()
+            
+    def dump_data_to_db(self):
+
+        db_data = self.format_mealcollection_as_list()
+        self.sql_mgr.bulk_insert_into_db(db_data)
+        logger.info(f'Dumped contents to {self.sql_mgr.database}')
+        self.collection = []
 
     def format_mealcollection_as_list(self):
         formatted_data = []

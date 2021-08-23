@@ -5,6 +5,7 @@ from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ing
                                                         insert_instructions, insert_nutrition)
 from typing import Union
 import logging
+import time
 
 __author__ = 'bmarx'
 
@@ -43,11 +44,13 @@ class MySqlManager:
     def cursor(self):
         if self._cursor is None:
             self._cursor = self.mysql_connection.cursor()
+            self.mysql_connection.autocommit = True # Got this from stackoverflow
         return self._cursor
 
     def rebuild_database(self) -> None:
         try:
             self.cursor.execute(init_query, multi=True)
+            # self.mysql_connection.commit() # TODO: Getting out of sync errors
             logger.info('Successfully built database!')
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
@@ -61,9 +64,12 @@ class MySqlManager:
             self._bulk_insert_nutrition(data)
             self.mysql_connection.commit()
 
-            logger.info(f'successfully uploaded {len(data)} items.') 
+            logger.warning(f'successfully uploaded {len(data)} items.') 
         except Exception as e:
-            logger.critical(f'Unable to load data!\nError: {e}')
+            if str(e).startswith('1062'):
+                logger.critical('Duplicate key error. Will not be loaded.')
+            else:
+                logger.critical(f'Unable to load data!\nError: {e}')
 
     def _bulk_insert_meals(self, data) -> None:
         injection = []
@@ -75,7 +81,6 @@ class MySqlManager:
                         meal['url']
                         )
             injection.append(mealdata)
-
         self.cursor.executemany(insert_meals, injection)
         
     def _bulk_insert_ingredients(self, data) -> None:
