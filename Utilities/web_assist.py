@@ -17,14 +17,18 @@ def make_context() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
 
-def get_html_for_soup(url: str, ct, suffix: str = ''):
+def get_html_for_soup(url: str, ct, suffix: str = '', max_attempts: int = 3):
     formatted_url = url + suffix
-    try:
-        html = urlopen(formatted_url, context=ct).read()
-    except Exception as e:
-        logger.critical(f'Failed to retrieve HTML.\nError: {e}')
-    soup = BeautifulSoup(html, "html.parser")
-    return soup
+    attempt = 0
+    while attempt < max_attempts:
+        try:
+            html = urlopen(formatted_url, context=ct).read()
+            soup = BeautifulSoup(html, "html.parser")
+            return soup
+        except:
+            attempt += 1
+    logger.critical(f'Failed to retrieve HTML after {attempt} try(s).')
+
 
 def find_in_url(url: str,
                 item: int = -1,

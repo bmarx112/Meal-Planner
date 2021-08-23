@@ -30,7 +30,7 @@ class BatchMealCollection(MealCollection):
         self._to_db = write_to_db
         # TODO: pass db credentials to manager here, or refactor.
         if self._to_db:
-            self.sql_mgr = MySqlManager()
+            self.sql_mgr = MySqlManager(database='mealplanner_test')
 
     def add_meals_to_collection(self, addition: Union[MealInfo, List[MealInfo]]):
         # accepts lists and single values. need to use different methods for either case
@@ -42,7 +42,7 @@ class BatchMealCollection(MealCollection):
         if len(self.collection) >= self.class_capacity:
 
             self.dump_data_to_db()
-            logger.info(f'Dumped contents to {self.sql_mgr.database}')
+            logger.warning(f'Dumped contents to {self.sql_mgr.database}')
 
             self.collection = []
             

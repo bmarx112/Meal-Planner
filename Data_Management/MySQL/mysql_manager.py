@@ -47,7 +47,9 @@ class MySqlManager:
 
     def rebuild_database(self) -> None:
         try:
-            self.cursor.execute(init_query, multi=True)
+            for i in init_query:
+                self.cursor.execute(i, multi=True)
+                self.mysql_connection.commit()
             logger.info('Successfully built database!')
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
@@ -61,7 +63,7 @@ class MySqlManager:
             self._bulk_insert_nutrition(data)
             self.mysql_connection.commit()
 
-            logger.info(f'successfully uploaded {len(data)} items.') 
+            logger.warning(f'successfully uploaded {len(data)} items.') 
         except Exception as e:
             logger.critical(f'Unable to load data!\nError: {e}')
 
@@ -74,8 +76,9 @@ class MySqlManager:
                         meal['category'],
                         meal['url']
                         )
+                    
             injection.append(mealdata)
-
+            print(meal['recipe_id'])
         self.cursor.executemany(insert_meals, injection)
         
     def _bulk_insert_ingredients(self, data) -> None:

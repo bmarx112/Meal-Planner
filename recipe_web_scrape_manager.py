@@ -59,11 +59,10 @@ class RecipeWebScrapeManager:
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
-                try:
-                    meal = self._format_data_as_meal(recipe, category)
-                    Meal_Col.add_meals_to_collection(meal)
-                except Exception as e:
-                    logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
+
+                meal = self._format_data_as_meal(recipe, category)
+                Meal_Col.add_meals_to_collection(meal)
+
 
     def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
@@ -135,6 +134,8 @@ class RecipeWebScrapeManager:
                             if rec_id not in completed_parses:
                                 recipe_links_by_cat[cgy].add(corrected_link)
                                 completed_parses.add(rec_id)
+                                if rec_id == '9401':
+                                    print('\n\n\nFOUND 9401\n\n\n')
                             else:
                                 logger.info(f'{corrected_link} already exists')
 
@@ -201,7 +202,7 @@ class RecipeWebScrapeManager:
 
 
 if __name__ == '__main__':
-    test_connect = MySqlManager()
+    test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
     scr = RecipeWebScrapeManager(page_limit=1)
-    scr.dump_scrape_data_to_db()
+    scr.dump_scrape_data_to_db(item_limit=1)
