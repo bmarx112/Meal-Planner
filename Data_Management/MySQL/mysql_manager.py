@@ -5,7 +5,6 @@ from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ing
                                                         insert_instructions, insert_nutrition)
 from typing import Union
 import logging
-import time
 
 __author__ = 'bmarx'
 
@@ -44,13 +43,13 @@ class MySqlManager:
     def cursor(self):
         if self._cursor is None:
             self._cursor = self.mysql_connection.cursor()
-            self.mysql_connection.autocommit = True # Got this from stackoverflow
         return self._cursor
 
     def rebuild_database(self) -> None:
         try:
-            self.cursor.execute(init_query, multi=True)
-            # self.mysql_connection.commit() # TODO: Getting out of sync errors
+            for i in init_query:
+                self.cursor.execute(i, multi=True)
+                self.mysql_connection.commit()
             logger.info('Successfully built database!')
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
@@ -64,7 +63,7 @@ class MySqlManager:
             self._bulk_insert_nutrition(data)
             self.mysql_connection.commit()
 
-            logger.warning(f'successfully uploaded {len(data)} items.') 
+            logger.info(f'successfully uploaded {len(data)} items.') 
         except Exception as e:
             if str(e).startswith('1062'):
                 logger.critical('Duplicate key error. Will not be loaded.')
