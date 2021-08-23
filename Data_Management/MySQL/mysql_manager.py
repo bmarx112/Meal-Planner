@@ -3,18 +3,17 @@ from mysql.connector.connection import MySQLConnection
 from Data_Management.MySQL.Queries.MySql_init import init_query
 from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ingredients, 
                                                         insert_instructions, insert_nutrition)
-from typing import Union
 import logging
 
 __author__ = 'bmarx'
 
 logger = logging.getLogger(__name__)
 
-# TODO: Consider adding meal category as a field in Meals table?
+
 class MySqlManager:
 
     def __init__(self,
-                 user: Union[str, None] = 'root',
+                 user: str = 'root',
                  password: str = None,
                  host: str = '127.0.0.1',
                  database: str = 'MealPlanner') -> None:
@@ -98,7 +97,7 @@ class MySqlManager:
         for nut in data:
             for name, value in nut['nutrition_facts'].items():
                 # dict of dict of list
-                quantity =  float(value['nutrient-value'][0])
+                quantity = float(value['nutrient-value'][0])
                 mealdata = (
                             nut['recipe_id'],
                             name,

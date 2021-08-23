@@ -1,5 +1,5 @@
 from collections import defaultdict
-from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url, 
+from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url,
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
 from typing import Union
@@ -46,16 +46,16 @@ class RecipeWebScrapeManager:
         meals_from_scrape.dump_data_to_db()
 
     def _upload_to_mysql(self, db: MySqlManager, dump_limit: Union[None, int] = 100):
-        Meal_Col = MealCollection(item_limit = dump_limit, db = db)
+        meal_col = MealCollection(item_limit=dump_limit, db=db)
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
             for recipe in list(recipe_set):
                 try:
                     meal = self._format_data_as_meal(recipe, category)
-                    Meal_Col.add_meals_to_collection(meal)
+                    meal_col.add_meals_to_collection(meal)
                 except Exception as e:
                     logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
-        return Meal_Col
+        return meal_col
 
     def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
@@ -66,7 +66,7 @@ class RecipeWebScrapeManager:
         ingredient_data = self._get_cooking_ingredients(sp)
         instruction_dict = self._get_meal_instructions(sp)
 
-        meal = MealInfo(url=recipe, 
+        meal = MealInfo(url=recipe,
                         category=cat,
                         name=meal_name,
                         ingredients=ingredient_data,
@@ -121,8 +121,8 @@ class RecipeWebScrapeManager:
                         aria_logic = tg.get('aria-hidden')[0]  # Aria logic only needed in page one.
                     except:
                         aria_logic = 'NA'
-                    if ((class_logic in 'card__titleLink manual-link-behavior' and aria_logic in 'true') 
-                         or class_logic in 'tout__imageLink'):
+                    if ((class_logic in 'card__titleLink manual-link-behavior' and aria_logic in 'true')
+                            or class_logic in 'tout__imageLink'):
 
                         raw_link = tg.get('href')
 
@@ -145,11 +145,11 @@ class RecipeWebScrapeManager:
                                           'section',
                                           'recipe-nutrition ng-dialog component nutrition-section container')
         cal_sect = get_website_chunk_by_class(sect,
-                                          'span',
-                                          'semi-bold')
+                                              'span',
+                                              'semi-bold')
         # TODO: Change this quick and dirty method of grabbing calories into something more sustainable
-        cal_name = cal_sect.next.replace(':','')
-        cal_vals = [cal_sect.nextSibling.replace(' ',''), '']
+        cal_name = cal_sect.next.replace(':', '')
+        cal_vals = [cal_sect.nextSibling.replace(' ', ''), '']
         cal_load = {'nutrient-value': cal_vals}
         content[cal_name] = cal_load
         # iterate through all 'div' sections that are a 'nutrient-row' class
@@ -160,16 +160,16 @@ class RecipeWebScrapeManager:
                 try:
                     # Get nutrient name
                     nutr_name = next(span.stripped_strings)
-                    rm_colon_name = nutr_name.replace(':','')
+                    rm_colon_name = nutr_name.replace(':', '')
                     # Get Nutrient Data
                     nutrient_values = format_dict_from_soup(div, 'value')
                     content[rm_colon_name] = nutrient_values
                 except:
-                    print('couldnt parse', span)
+                    print(f"couldn't parse {span}")
                     continue
         return content
 
-# TODO: refactor the find_all and for-loop into a separate function in web_assist
+    # TODO: refactor the find_all and for-loop into a separate function in web_assist
     @staticmethod
     def _get_cooking_ingredients(soup) -> list:
         item_list = []
@@ -195,7 +195,7 @@ class RecipeWebScrapeManager:
 
         for step, item in enumerate(inst_components):
             item_str = str(item.string)
-            item_dict[step+1] = item_str
+            item_dict[step + 1] = item_str
         return item_dict
 
     @staticmethod
@@ -208,6 +208,6 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
     test_connect = MySqlManager()
-    # test_connect.rebuild_database()
+    test_connect.rebuild_database()
     scr = RecipeWebScrapeManager(page_limit=100, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=1, db = test_connect)
+    scr.dump_scrape_data_to_db(dump_limit=1, db=test_connect)

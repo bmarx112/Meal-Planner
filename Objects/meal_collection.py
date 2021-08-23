@@ -9,20 +9,15 @@ __author__ = 'bmarx'
 
 logger = logging.getLogger(__name__)
 
-'''
-Version of MealCollection that dumps its contents to a database once a certain
-amount of items have been added. Purpose is to avoid using all the RAM 
-when a lot of data is being scraped.
-'''
 
-class MealCollection():
+class MealCollection:
 
     def __init__(self,
                  item_limit: None,
                  db: MySqlManager,
                  meal_list: Union[None, List[MealInfo]] = None
                  ):
-        self.class_capacity = item_limit or 1000000 # arbitrarily high limit
+        self.class_capacity = item_limit or 1000000  # arbitrarily high limit
         self.collection = meal_list or []
         self.sql_mgr = db
 
@@ -32,11 +27,11 @@ class MealCollection():
             self.collection.extend(addition)
         else:
             self.collection.append(addition)
-        
+
         if len(self.collection) >= self.class_capacity:
 
             self.dump_data_to_db()
-            
+
     def dump_data_to_db(self):
 
         db_data = self.format_mealcollection_as_list()
