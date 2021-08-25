@@ -29,7 +29,7 @@ def get_html_for_soup(url: str, ct, suffix: str = '', max_attempts: int = 3):
             return soup
         except:
             attempt += 1
-    logger.critical(f'Failed to retrieve HTML after {attempt} try(s).')
+    logger.critical(f'Failed to retrieve HTML for {formatted_url} after {attempt} try(s).')
 
 
 def find_in_url(url: str,

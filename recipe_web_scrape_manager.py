@@ -207,7 +207,7 @@ class RecipeWebScrapeManager:
 
 
 if __name__ == '__main__':
-    test_connect = MySqlManager()
+    test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=100, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=1, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=3)
+    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
