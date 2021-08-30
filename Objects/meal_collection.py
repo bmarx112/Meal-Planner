@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 class MealCollection:
 
     def __init__(self,
-                 item_limit: None,
                  db: MySqlManager,
+                 item_limit: int = None,
                  meal_list: Union[None, List[MealInfo]] = None
                  ):
-        self.class_capacity = item_limit or 1000000  # arbitrarily high limit
+        self.class_capacity = item_limit or 100000000  # arbitrarily high limit
         self.collection = meal_list or []
         self.sql_mgr = db
 

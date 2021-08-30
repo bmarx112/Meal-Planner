@@ -7,6 +7,7 @@ from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
+import time
 
 __author__ = 'bmarx'
 
@@ -42,8 +43,13 @@ class RecipeWebScrapeManager:
         return self._recipe_link_dict
 
     def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
+        start = time.time() #start time
+        
+        
         meals_from_scrape = self._upload_to_mysql(db, dump_limit)
         meals_from_scrape.dump_data_to_db()
+        end = time.time()
+        print("Elapsed time is  {}".format(end-start))
 
     def _upload_to_mysql(self, db: MySqlManager, dump_limit: Union[None, int] = 100):
         meal_col = MealCollection(item_limit=dump_limit, db=db)
@@ -184,6 +190,7 @@ class RecipeWebScrapeManager:
             item_list.append(item_str)
         return item_list
 
+    # TODO: Instruction steps that contain links are not populating. they appear as 'None.' Find out why!
     @staticmethod
     def _get_meal_instructions(soup) -> dict:
         item_dict = {}
@@ -209,5 +216,7 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=3)
-    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=1, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=1, db=test_connect)
+# 108.86960673332214 / 92.79017543792725
+# 96.04293203353882 / 98.59514808654785

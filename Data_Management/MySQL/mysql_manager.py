@@ -1,3 +1,4 @@
+from typing import List
 import mysql.connector
 from mysql.connector.connection import MySQLConnection
 from Data_Management.MySQL.Queries.MySql_init import init_query
@@ -44,12 +45,22 @@ class MySqlManager:
             self._cursor = self.mysql_connection.cursor()
         return self._cursor
 
+    def execute_query(self, query: str, payload: List = None, commit: bool = False) -> None:
+
+        try:
+            self.cursor.executemany(query, payload)
+
+            if commit:
+                self.mysql_connection.commit()
+
+            logger.info('Query executed successfully.')
+        except Exception as e:
+            logger.critical(f'Unable to execute query! \nError: {e}')
+
     def rebuild_database(self) -> None:
         try:
             for i in init_query:
-                self.cursor.execute(i, multi=True)
-                self.mysql_connection.commit()
-            logger.info('Successfully built database!')
+                self.execute_query(i,commit=True)
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
@@ -79,7 +90,7 @@ class MySqlManager:
                         meal['url']
                         )
             injection.append(mealdata)
-        self.cursor.executemany(insert_meals, injection)
+        self.execute_query(insert_meals, injection)
         
     def _bulk_insert_ingredients(self, data) -> None:
         injection = []
@@ -90,7 +101,7 @@ class MySqlManager:
                             element
                             )
                 injection.append(mealdata)
-        self.cursor.executemany(insert_ingredients, injection)
+        self.execute_query(insert_ingredients, injection)
 
     def _bulk_insert_nutrition(self, data) -> None:
         injection = []
@@ -105,7 +116,7 @@ class MySqlManager:
                             value['nutrient-value'][1]
                             )
                 injection.append(mealdata)
-        self.cursor.executemany(insert_nutrition, injection)
+        self.execute_query(insert_nutrition, injection)
 
     def _bulk_insert_instructions(self, data) -> None:
         injection = []
@@ -119,7 +130,7 @@ class MySqlManager:
                             )
                 injection.append(mealdata)
 
-        self.cursor.executemany(insert_instructions, injection)
+        self.execute_query(insert_instructions, injection)
 
 
 if __name__ == '__main__':

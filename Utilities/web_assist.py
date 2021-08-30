@@ -1,11 +1,13 @@
 from bs4 import BeautifulSoup
 import ssl
 from urllib.request import urlopen
+from retry import retry
 import re
 import warnings
 from typing import Union
 from bs4.element import NavigableString
 import logging
+
 
 __author__ = 'bmarx'
 
@@ -18,18 +20,12 @@ def make_context() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
 
-
-def get_html_for_soup(url: str, ct, suffix: str = '', max_attempts: int = 3):
+@retry(tries=3)
+def get_html_for_soup(url: str, ct, suffix: str = ''):
     formatted_url = url + suffix
-    attempt = 0
-    while attempt < max_attempts:
-        try:
-            html = urlopen(formatted_url, context=ct).read()
-            soup = BeautifulSoup(html, "html.parser")
-            return soup
-        except:
-            attempt += 1
-    logger.critical(f'Failed to retrieve HTML for {formatted_url} after {attempt} try(s).')
+    html = urlopen(formatted_url, context=ct).read()
+    soup = BeautifulSoup(html, "html.parser")
+    return soup
 
 
 def find_in_url(url: str,
