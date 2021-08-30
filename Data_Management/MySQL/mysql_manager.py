@@ -1,4 +1,5 @@
 from typing import List
+import pandas as pd
 import mysql.connector
 from mysql.connector.connection import MySQLConnection
 from Data_Management.MySQL.Queries.MySql_init import init_query
@@ -46,21 +47,29 @@ class MySqlManager:
         return self._cursor
 
     def execute_query(self, query: str, payload: List = None, commit: bool = False) -> None:
-
         try:
-            self.cursor.executemany(query, payload)
+            if payload:
+                self.cursor.executemany(query, payload)
+            else:
+                self.cursor.execute(query)
 
             if commit:
                 self.mysql_connection.commit()
 
             logger.info('Query executed successfully.')
         except Exception as e:
-            logger.critical(f'Unable to execute query! \nError: {e}')
+            logger.critical(f'Unable to execute query! \nError: {e}\nPayload: {payload}')
+
+    def read_to_dataframe(self, query: str) -> pd.DataFrame:
+        sql_query = pd.read_sql(query, self.mysql_connection)
+        return sql_query
 
     def rebuild_database(self) -> None:
         try:
             for i in init_query:
                 self.execute_query(i,commit=True)
+                #self.cursor.execute(i)
+                #self.mysql_connection.commit()
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
