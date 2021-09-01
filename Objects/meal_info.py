@@ -8,7 +8,8 @@ class MealInfo:
                  name: str,
                  ingredients: list,
                  nutrition: dict,
-                 instructions: dict):
+                 instructions: dict,
+                 scope: dict):
         self.url = str(url)
         self.recipe_id = int(find_in_url(self.url, -2, False))
         self.category = category
@@ -16,6 +17,7 @@ class MealInfo:
         self.ingredient_list = ingredients
         self.nutrition_facts = nutrition
         self.cooking_instructions = instructions
+        self.recipe_scope = scope
         self._meal_dict = None
 
     @property

@@ -21,7 +21,7 @@ def make_context() -> ssl.SSLContext:
     return ctx
 
 @retry(tries=3)
-def get_html_for_soup(url: str, ct, suffix: str = ''):
+def get_soup_from_html(url: str, ct, suffix: str = ''):
     formatted_url = url + suffix
     html = urlopen(formatted_url, context=ct).read()
     soup = BeautifulSoup(html, "html.parser")
@@ -55,7 +55,7 @@ def prepend_root_to_url(base_url: str, prefix: str) -> str:
     return url
 
 
-def get_website_chunk_by_class(soup: BeautifulSoup, tag: str, classname: Union[str, None] = None):
+def get_website_chunk_by_class(soup: BeautifulSoup, tag: str, classname: str = None):
 
     if classname is None:
         sect = soup.find(tag)

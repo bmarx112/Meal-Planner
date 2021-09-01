@@ -17,6 +17,20 @@ init_query = [
         );
     ''', 
     '''
+    DROP TABLE IF EXISTS MealScope;
+    ''',
+    '''
+    CREATE TABLE MealScope (
+            Scope_Id      INT NOT NULL AUTO_INCREMENT,
+            Recipe_Id     INT NOT NULL,
+            Levelno   INT NOT NULL,
+            Level_Desc VARCHAR(255),
+            Date_Uploaded   timestamp not null default current_timestamp,
+            PRIMARY KEY (Scope_Id),
+            FOREIGN KEY (Recipe_Id) REFERENCES Meal(Recipe_Id)
+        );
+    ''', 
+    '''
     DROP TABLE IF EXISTS Ingredients;
     ''',
     '''

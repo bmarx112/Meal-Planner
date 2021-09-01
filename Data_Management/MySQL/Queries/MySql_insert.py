@@ -23,3 +23,9 @@ insert_nutrition = '''INSERT INTO Nutrition (Recipe_Id,
                                              Unit)
                                         VALUES ( %s,%s,%s,%s)
 '''
+
+insert_mealscope = '''INSERT INTO MealScope (Recipe_Id,
+                                             Levelno,
+                                             Level_Desc)
+                                                VALUES ( %s,%s,%s)
+'''

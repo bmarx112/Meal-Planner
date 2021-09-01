@@ -4,7 +4,7 @@ import mysql.connector
 from mysql.connector.connection import MySQLConnection
 from Data_Management.MySQL.Queries.MySql_init import init_query
 from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ingredients, 
-                                                        insert_instructions, insert_nutrition)
+                                                        insert_instructions, insert_nutrition, insert_mealscope)
 import logging
 
 __author__ = 'bmarx'
@@ -68,8 +68,6 @@ class MySqlManager:
         try:
             for i in init_query:
                 self.execute_query(i,commit=True)
-                #self.cursor.execute(i)
-                #self.mysql_connection.commit()
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
@@ -80,6 +78,7 @@ class MySqlManager:
             self._bulk_insert_ingredients(data)
             self._bulk_insert_instructions(data)
             self._bulk_insert_nutrition(data)
+            self._bulk_insert_mealscope(data)
             self.mysql_connection.commit()
 
             logger.info(f'successfully uploaded {len(data)} items.') 
@@ -140,6 +139,20 @@ class MySqlManager:
                 injection.append(mealdata)
 
         self.execute_query(insert_instructions, injection)
+    
+    def _bulk_insert_mealscope(self, data) -> None:
+        injection = []
+        for scope in data:
+            for lvl, scp in scope['recipe_scope'].items():
+                mealdata = (
+                            scope['recipe_id'],
+                            lvl,
+                            scp
+                            )
+                injection.append(mealdata)
+        
+        self.execute_query(insert_mealscope, injection)
+
 
 
 if __name__ == '__main__':

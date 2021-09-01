@@ -1,5 +1,7 @@
+import sys
+sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
 from collections import defaultdict
-from Utilities.web_assist import (prepend_root_to_url, make_context, get_html_for_soup, find_in_url,
+from Utilities.web_assist import (prepend_root_to_url, make_context, get_soup_from_html, find_in_url,
                                   get_website_chunk_by_class, format_dict_from_soup)
 from datetime import datetime as dt
 from typing import Union
@@ -67,24 +69,26 @@ class RecipeWebScrapeManager:
 
     def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
         # Getting HTML for specific recipe page for scraping
-        sp = get_html_for_soup(recipe, self._context)
+        sp = get_soup_from_html(recipe, self._context)
 
         meal_name = self._get_recipe_name(sp)
         nutrition_data = self._get_nutrient_data_for_meal(sp)
         ingredient_data = self._get_cooking_ingredients(sp)
         instruction_dict = self._get_meal_instructions(sp)
+        scope_dict = self._get_recipe_scope(sp)
 
         meal = MealInfo(url=recipe,
                         category=cat,
                         name=meal_name,
                         ingredients=ingredient_data,
                         nutrition=nutrition_data,
-                        instructions=instruction_dict)
+                        instructions=instruction_dict,
+                        scope=scope_dict)
         return meal
 
     def _get_meal_categories(self) -> dict:
         recipe_categories = {}
-        soup = get_html_for_soup(self.base_url, self._context)
+        soup = get_soup_from_html(self.base_url, self._context)
         tags = soup('a', class_='see-all-heading')
         if not tags:
             logger.critical(f'Unable to find any categories in {self.base_url}!')
@@ -112,7 +116,7 @@ class RecipeWebScrapeManager:
             while valid_page and page_num <= self._website_page_limit:
                 page = '?page=' + str(page_num)
                 try:
-                    option_page = get_html_for_soup(lnk, self._context, page)
+                    option_page = get_soup_from_html(lnk, self._context, page)
                 except:
                     valid_page = False
                     logger.info(f'Reached last viable page for {cgy}')
@@ -134,18 +138,19 @@ class RecipeWebScrapeManager:
 
                         raw_link = tg.get('href')
 
-                        if '/recipe/' in raw_link:
+                        if '/recipe/' in raw_link: # We only want links to recipes, not blogs or ads, etc
                             corrected_link = prepend_root_to_url(raw_link, self.base_url)
                             rec_id = find_in_url(corrected_link, -2, False)
-                            if rec_id not in completed_parses:
+                            if rec_id not in completed_parses: #Sometimes one recipe exists in multiple categories! Only keep the first occurence.
                                 recipe_links_by_cat[cgy].add(corrected_link)
                                 completed_parses.add(rec_id)
                             else:
                                 logger.info(f'{corrected_link} already exists')
-                print(f'{cgy}: {len(list(recipe_links_by_cat[cgy]))} so far!')
-                page_num += 1
+                print(f'{cgy}: {len(list(recipe_links_by_cat[cgy]))} so far!') #Just a sanity check.
+                page_num += 1 # 'turning' the page
         return recipe_links_by_cat
 
+    # TODO: Some recipes dont have a pop-up window for the nutrition facts and are being skipped. find a way to capture that different structure of HTML.
     @staticmethod
     def _get_nutrient_data_for_meal(soup) -> dict:
         content = {}
@@ -177,7 +182,6 @@ class RecipeWebScrapeManager:
                     continue
         return content
 
-    # TODO: refactor the find_all and for-loop into a separate function in web_assist
     @staticmethod
     def _get_cooking_ingredients(soup) -> list:
         item_list = []
@@ -214,14 +218,23 @@ class RecipeWebScrapeManager:
                                            'headline heading-content')
         return title.string
 
+    @staticmethod
+    def _get_recipe_scope(soup) -> dict:
+        scope_table = get_website_chunk_by_class(soup, 
+                                                 'div', 
+                                                 'component breadcrumbs')
+
+        full_tp_list = list(enumerate(scope_table.stripped_strings))
+        scope_tp_list = full_tp_list[:-1] # the final element is the recipe name itself, which will obviously be unique
+        return dict(scope_tp_list)                       
 
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
-    #test_connect.rebuild_database()
-    #scr = RecipeWebScrapeManager(page_limit=1, choose_cats=True)
-    #scr.dump_scrape_data_to_db(dump_limit=1, db=test_connect)
-    df = test_connect.read_to_dataframe(pull_meals)
-    print(df)
+    test_connect.rebuild_database()
+    scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
+    # df = test_connect.read_to_dataframe(pull_meals)
+    # print(df)
     
 # 108.86960673332214 / 92.79017543792725
 # 96.04293203353882 / 98.59514808654785
