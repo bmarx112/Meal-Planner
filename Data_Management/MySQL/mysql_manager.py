@@ -61,8 +61,8 @@ class MySqlManager:
             logger.critical(f'Unable to execute query! \nError: {e}\nPayload: {payload}')
 
     def read_to_dataframe(self, query: str) -> pd.DataFrame:
-        sql_query = pd.read_sql(query, self.mysql_connection)
-        return sql_query
+        sql_query_df = pd.read_sql(query, self.mysql_connection)
+        return sql_query_df
 
     def rebuild_database(self) -> None:
         try:
