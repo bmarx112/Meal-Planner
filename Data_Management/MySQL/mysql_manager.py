@@ -95,7 +95,9 @@ class MySqlManager:
                         meal['recipe_id'],
                         meal['meal_name'],
                         meal['category'],
-                        meal['url']
+                        meal['url'],
+                        meal['rating'],
+                        meal['rt_count']
                         )
             injection.append(mealdata)
         self.execute_query(insert_meals, injection)

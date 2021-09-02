@@ -2,8 +2,10 @@
 insert_meals = '''INSERT INTO Meal (Recipe_Id,
                                     Meal_Name,
                                     Meal_Category,
-                                    Meal_URL)
-                                VALUES ( %s,%s,%s,%s)
+                                    Meal_URL,
+                                    Meal_Rating,
+                                    Num_Ratings)
+                                VALUES ( %s,%s,%s,%s,%s,%s)
 '''
 
 insert_ingredients = '''INSERT INTO Ingredients (Recipe_Id,

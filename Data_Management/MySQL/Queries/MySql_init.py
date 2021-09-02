@@ -12,6 +12,8 @@ init_query = [
             Meal_Name   VARCHAR(255),
             Meal_Category   VARCHAR(100),
             Meal_URL    VARCHAR(255),
+            Meal_Rating     FLOAT,
+            Num_Ratings     INT,
             Date_Uploaded   timestamp not null default current_timestamp,
             PRIMARY KEY (Recipe_Id)
         );

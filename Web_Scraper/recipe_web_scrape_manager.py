@@ -10,6 +10,7 @@ from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import time
+import re
 from Data_Management.MySQL.Queries.MySql_Query import pull_meals
 
 __author__ = 'bmarx'
@@ -76,6 +77,8 @@ class RecipeWebScrapeManager:
         ingredient_data = self._get_cooking_ingredients(sp)
         instruction_dict = self._get_meal_instructions(sp)
         scope_dict = self._get_recipe_scope(sp)
+        meal_rating = self._get_recipe_rating(sp)
+        rt_count = self._get_recipe_rating_count(sp)
 
         meal = MealInfo(url=recipe,
                         category=cat,
@@ -83,7 +86,9 @@ class RecipeWebScrapeManager:
                         ingredients=ingredient_data,
                         nutrition=nutrition_data,
                         instructions=instruction_dict,
-                        scope=scope_dict)
+                        scope=scope_dict,
+                        rating=meal_rating,
+                        rt_count=rt_count)
         return meal
 
     def _get_meal_categories(self) -> dict:
@@ -226,7 +231,35 @@ class RecipeWebScrapeManager:
 
         full_tp_list = list(enumerate(scope_table.stripped_strings))
         scope_tp_list = full_tp_list[:-1] # the final element is the recipe name itself, which will obviously be unique
-        return dict(scope_tp_list)                       
+        return dict(scope_tp_list)          
+
+    @staticmethod
+    def _get_recipe_rating(soup) -> float:
+        rating_section = get_website_chunk_by_class(soup, 
+                                                 'span', 
+                                                 'review-star-text')
+
+        try:
+            rating_string = rating_section.text
+            rating_number = re.findall(r'[0-9\.]+', rating_string)  
+            rating_float = float(rating_number[0])
+        except:
+            rating_float = 0.0
+        return rating_float
+
+    @staticmethod
+    def _get_recipe_rating_count(soup) -> int:
+        rt_count_section = get_website_chunk_by_class(soup, 
+                                                 'span', 
+                                                 'ugc-ratings-item')
+        try:
+            count_string = rt_count_section.text
+            count_number = re.findall(r'[0-9,]+', count_string)
+            count_stripped = count_number[0].replace(',','')
+            count_int = int(count_stripped)
+        except:
+            count_int = 0
+        return count_int
 
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
@@ -236,5 +269,3 @@ if __name__ == '__main__':
     # df = test_connect.read_to_dataframe(pull_meals)
     # print(df)
     
-# 108.86960673332214 / 92.79017543792725
-# 96.04293203353882 / 98.59514808654785
