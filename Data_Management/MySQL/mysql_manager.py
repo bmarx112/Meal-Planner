@@ -141,7 +141,7 @@ class MySqlManager:
                 injection.append(mealdata)
 
         self.execute_query(insert_instructions, injection)
-    
+
     def _bulk_insert_mealscope(self, data) -> None:
         injection = []
         for scope in data:
