@@ -230,8 +230,8 @@ class RecipeWebScrapeManager:
                                                  'component breadcrumbs')
 
         full_tp_list = list(enumerate(scope_table.stripped_strings))
-        scope_tp_list = full_tp_list[:-1] # the final element is the recipe name itself, which will obviously be unique
-        return dict(scope_tp_list)          
+        scope_tp_list = full_tp_list[:-1]  # the final element is the recipe name itself, which will obviously be unique
+        return dict(scope_tp_list)
 
     @staticmethod
     def _get_recipe_rating(soup) -> float:
