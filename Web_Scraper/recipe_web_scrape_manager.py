@@ -47,14 +47,9 @@ class RecipeWebScrapeManager:
         return self._recipe_link_dict
 
     def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
-        start = time.time() #start time
-        
-        
         meals_from_scrape = self._upload_to_mysql(db, dump_limit)
         if len(meals_from_scrape.collection) > 0:
             meals_from_scrape.dump_data_to_db()
-        end = time.time()
-        print("Elapsed time is  {}".format(end-start))
 
     def _upload_to_mysql(self, db: MySqlManager, dump_limit: Union[None, int] = 100):
         meal_col = MealCollection(item_limit=dump_limit, db=db)

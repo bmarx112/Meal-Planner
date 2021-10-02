@@ -67,7 +67,7 @@ class MySqlManager:
     def rebuild_database(self) -> None:
         try:
             for i in init_query:
-                self.execute_query(i,commit=True)
+                self.execute_query(i, commit=True)
         except Exception as e:
             logger.critical(f'Unable to create database!\nError: {e}')
 
