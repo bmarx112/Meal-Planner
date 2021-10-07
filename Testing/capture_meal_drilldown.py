@@ -1,3 +1,6 @@
+import os.path
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import time
 from Utilities.web_assist import (make_context, get_soup_from_html, get_website_chunk_by_class)
 

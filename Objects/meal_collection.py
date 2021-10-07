@@ -1,4 +1,3 @@
-from genericpath import isfile
 from Data_Management.MySQL.mysql_manager import MySqlManager
 from typing import Union, List
 from Objects.meal_info import MealInfo

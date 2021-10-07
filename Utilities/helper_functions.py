@@ -1,5 +1,6 @@
+import os.path
 import sys
-sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from Objects.unit_conversion import CONVERSION_TABLE
 
 

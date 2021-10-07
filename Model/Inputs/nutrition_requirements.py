@@ -1,8 +1,10 @@
+import os.path
 import sys
-sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 import logging
 from Utilities.helper_functions import convert_unit
 from Objects.unit_conversion import WEIGHT_GOAL_TARGETS, CALORIE_TO_NUTRIENT, ACTIVITY_ADJUSTMENTS
+from Objects.nutrient_statics import req_calcium
 
 __author__ = 'bmarx'
 
@@ -24,7 +26,7 @@ class NutrientRequirementManager:
         self._weight = weight if wgt_unit == 'kg' else convert_unit(weight, wgt_unit, 'kg')
         self._height = height if hgt_unit == 'cm' else convert_unit(height, hgt_unit, 'cm')
         self._age = age
-        self._gender = gender.lower()
+        self._gender = gender.lower() if gender else None
         self._weight_goal = weight_goal.lower()
         self._activity_level = activity.lower()
         self._calories = None
@@ -32,7 +34,10 @@ class NutrientRequirementManager:
         self._carbohydrates = None
         self._proteins = None
         self._fat = None
-    
+        self._saturated_fat = None
+        self._calcium = None
+        self._dietary_fiber = None
+
     @property
     def calories(self):
         if not self._calories:
@@ -64,18 +69,41 @@ class NutrientRequirementManager:
         return self._proteins
     
     @property
+    def saturated_fat(self):
+        if not self._saturated_fat:
+            self._saturated_fat = self._calculate_nutrient_from_calories(cals=self.calories,
+                                                                    tgt=self._weight_goal, 
+                                                                    nutrient='saturated_fat')
+        return self._saturated_fat
+
+    @property
     def sugar(self):
         if not self._sugars:
             self._sugars = self._get_sugar_requirements()
         return self._sugars
-    
+
+    @property
+    def calcium(self):
+        if not self._calcium:
+            self._calcium = req_calcium
+        return self._calcium
+
+    @property
+    def dietary_fiber(self):
+        if not self._dietary_fiber:
+            self._dietary_fiber = self._get_daily_fiber_requirements()
+        return self._dietary_fiber
+
     def get_daily_requirements(self) -> dict:
         daily_reqs = {
             'calories': self.calories,
             'carbohydrates': self.carbohydrates,
             'fat': self.fat,
+            'saturated fat': self.saturated_fat,
             'protein': self.protein,
-            'sugar': self.sugar
+            'sugar': self.sugar,
+            'calcium': self.calcium,
+            'dietary fiber': self.dietary_fiber
                     }
         
         return daily_reqs
@@ -98,16 +126,33 @@ class NutrientRequirementManager:
         '''
 
         if self._gender == 'male':
-            sugar_grams = 37.5
+            req_sugar = 37.5
 
         elif self._gender == 'female':
-            sugar_grams = 25
+            req_sugar = 25
         
         else:
             logger.info('No gender specified')
             return 31.25
         
-        return sugar_grams
+        return req_sugar
+
+    def _get_daily_fiber_requirements(self) -> float:
+        '''
+        Per WebMD: Women need 25 grams of fiber per day, and men need 38 grams per day, according to the Institute of Medicine.
+        '''
+
+        if self._gender == 'male':
+            req_fiber = 38
+
+        elif self._gender == 'female':
+            req_fiber = 25
+        
+        else:
+            logger.info('No gender specified')
+            return 31.5
+        
+        return req_fiber
 
     @staticmethod
     def _calculate_nutrient_from_calories(cals: float, tgt: str, nutrient: str) -> float:

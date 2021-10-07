@@ -1,6 +1,7 @@
+import os.path
 import sys
-sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
-from Model.Inputs.calorie_requirements import get_calorie_requirements
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+from Model.Inputs.nutrition_requirements import NutrientRequirementManager
 import unittest
 from Testing.Unit_Tests.test_calorie_calculation.calorie_test_mock_objects import TestPerson
 
@@ -17,13 +18,14 @@ class CalorieCalcTestCase(unittest.TestCase):
                             age=self.age,
                             gender=sex)
 
-        calc_calories = get_calorie_requirements(kg=person.weight, 
-                                                 height_cm=person.height, 
+        nutr = NutrientRequirementManager(weight=person.weight, 
+                                                 height=person.height, 
                                                  age=person.age,
                                                  gender=person.gender)
 
-        expected_cals = 2093.75
-        self.assertEqual(calc_calories, expected_cals)
+        calc_calories = nutr.calories
+        expected_cals = 2834.5625
+        self.assertAlmostEqual(calc_calories, expected_cals, places=3)
 
     def test_calories_for_female(self):
         sex = 'FeMale'
@@ -32,26 +34,28 @@ class CalorieCalcTestCase(unittest.TestCase):
                             age=self.age,
                             gender=sex)
 
-        calc_calories = get_calorie_requirements(kg=person.weight, 
-                                                 height_cm=person.height, 
+        nutr = NutrientRequirementManager(weight=person.weight, 
+                                                 height=person.height, 
                                                  age=person.age,
                                                  gender=person.gender)
 
-        expected_cals = 1927.75
-        self.assertEqual(calc_calories, expected_cals)
+        calc_calories = nutr.calories
+        expected_cals = 2577.2625
+        self.assertAlmostEqual(calc_calories, expected_cals, places=3)
 
     def test_calories_no_gender(self):
         person = TestPerson(weight=self.weight,
                             height=self.height,
                             age=self.age)
 
-        calc_calories = get_calorie_requirements(kg=person.weight, 
-                                                 height_cm=person.height, 
+        nutr = NutrientRequirementManager(weight=person.weight, 
+                                                 height=person.height, 
                                                  age=person.age,
                                                  gender=person.gender)
 
-        expected_cals = 2088.75
-        self.assertEqual(calc_calories, expected_cals)
+        calc_calories = nutr.calories
+        expected_cals = 2826.8125
+        self.assertAlmostEqual(calc_calories, expected_cals, places=3)
 
 if __name__=='__main__':
     unittest.main()

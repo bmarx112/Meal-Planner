@@ -1,5 +1,6 @@
+import os.path
 import sys
-sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from collections import defaultdict
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_soup_from_html, find_in_url,
                                   get_website_chunk_by_class, format_dict_from_soup)
@@ -9,7 +10,6 @@ from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
-import time
 import re
 from Data_Management.MySQL.Queries.MySql_Query import pull_meals
 
@@ -258,9 +258,9 @@ class RecipeWebScrapeManager:
 
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
-    test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
+    #test_connect.rebuild_database()
+    #scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
+    #scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
     # print(df)
     

@@ -21,24 +21,28 @@ WEIGHT_GOAL_TARGETS = {
                         'maintain': {
                                   'carbs': 0.4,
                                   'protein': 0.3,
-                                  'fat': 0.3
+                                  'fat': 0.3,
+                                  'saturated_fat': 0.06
                                   },
                         'gain': {
                                   'carbs': 0.4,
                                   'protein': 0.3,
-                                  'fat': 0.3
+                                  'fat': 0.3,
+                                  'saturated_fat': 0.08
                                   },
                         'lose': {
                                   'carbs': 0.4,
                                   'protein': 0.4,
-                                  'fat': 0.2
+                                  'fat': 0.2,
+                                  'saturated_fat': 0.05
                                   },
                         }
 
 CALORIE_TO_NUTRIENT = {
                         'carbs': 1/4,
                         'protein': 1/4,
-                        'fat': 1/9
+                        'fat': 1/9,
+                        'saturated_fat': 11/100
                       }
 
 CONVERSION_TABLE = {

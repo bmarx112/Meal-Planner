@@ -1,5 +1,6 @@
+import os.path
 import sys
-sys.path.insert(0, r'C:\Users\bmarx\Coding Projects\Meal Planner')
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from Web_Scraper.recipe_web_scrape_manager import RecipeWebScrapeManager
 from Data_Management.MySQL.mysql_manager import MySqlManager
 
