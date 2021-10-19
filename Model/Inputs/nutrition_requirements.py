@@ -4,7 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 import logging
 from Utilities.helper_functions import convert_unit
 from Objects.unit_conversion import WEIGHT_GOAL_TARGETS, CALORIE_TO_NUTRIENT, ACTIVITY_ADJUSTMENTS
-from Objects.nutrient_statics import req_calcium
+from Objects.nutrient_statics import req_calcium, req_vit_c, req_sodium, req_folate, req_cholesterol
 
 __author__ = 'bmarx'
 
@@ -37,6 +37,18 @@ class NutrientRequirementManager:
         self._saturated_fat = None
         self._calcium = None
         self._dietary_fiber = None
+        self._vitamin_a = None
+        self._vitamin_c = None
+        self._vitamin_b6 = None
+        self._sodium = None
+        self._folate = None
+        self._cholesterol = None
+        self._niacin = None
+        self._iron = None  # TODO: Enter logic into iron method
+        self._magnesium = None  # TODO: Add Magnesium Method
+        self._potassium = None  # TODO: Add Potassium Method
+        self._thiamin = None  # TODO: Add Thiamin Method
+
 
     @property
     def calories(self):
@@ -79,7 +91,7 @@ class NutrientRequirementManager:
     @property
     def sugar(self):
         if not self._sugars:
-            self._sugars = self._get_sugar_requirements()
+            self._sugars = self._get_daily_sugar_requirements()
         return self._sugars
 
     @property
@@ -89,12 +101,54 @@ class NutrientRequirementManager:
         return self._calcium
 
     @property
+    def cholesterol(self):
+        if not self._cholesterol:
+            self._cholesterol = req_cholesterol
+        return self._cholesterol
+
+    @property
+    def vitamin_c(self):
+        if not self._vitamin_c:
+            self._vitamin_c = req_vit_c
+        return self._vitamin_c
+
+    @property
+    def sodium(self):
+        if not self._sodium:
+            self._sodium = req_sodium
+        return self._sodium
+
+    @property
+    def folate(self):
+        if not self._folate:
+            self._folate = req_folate
+        return self._folate
+
+    @property
+    def vitamin_b6(self):
+        if not self._vitamin_b6:
+            self._vitamin_b6 = self._get_daily_vitamin_b6_requirements()
+        return self._vitamin_b6
+
+    @property
     def dietary_fiber(self):
         if not self._dietary_fiber:
             self._dietary_fiber = self._get_daily_fiber_requirements()
         return self._dietary_fiber
 
-    def get_daily_requirements(self) -> dict:
+    @property
+    def vitamin_a(self):
+        if not self._vitamin_a:
+            self._vitamin_a = self._get_daily_vitamin_a_requirements()
+        return self._vitamin_a
+        
+    @property
+    def vitamin_a(self):
+        if not self._niacin:
+            self._niacin = self._get_daily_niacin_requirements()
+        return self._niacin    
+
+    def get_daily_requirements(self) -> dict:  # TODO: Add remaining nutrients to dict
         daily_reqs = {
             'calories': self.calories,
             'carbohydrates': self.carbohydrates,
@@ -103,7 +157,8 @@ class NutrientRequirementManager:
             'protein': self.protein,
             'sugar': self.sugar,
             'calcium': self.calcium,
-            'dietary fiber': self.dietary_fiber
+            'dietary fiber': self.dietary_fiber,
+            'vitamin a': self.vitamin_a
                     }
         
         return daily_reqs
@@ -119,7 +174,7 @@ class NutrientRequirementManager:
 
         return req_calories
 
-    def _get_sugar_requirements(self) -> float:
+    def _get_daily_sugar_requirements(self) -> float:
         '''
         Men: 150 calories per day (37.5 grams or 9 teaspoons)
         Women: 100 calories per day (25 grams or 6 teaspoons)
@@ -150,9 +205,84 @@ class NutrientRequirementManager:
         
         else:
             logger.info('No gender specified')
-            return 31.5
+            req_fiber = 31.5
         
         return req_fiber
+    
+    def _get_daily_vitamin_b6_requirements(self) -> float:
+        '''
+        recommended daily amount of vitamin B-6 for adults 50 and younger is 1.3 milligrams. 
+        After age 50, the recommended daily amount is 1.5 milligrams for women and 1.7 milligrams for men.
+        '''
+
+        if self._age <= 50:
+            return 1.3
+        
+        if self._gender == 'male':
+            req_b6 = 1.7
+
+        elif self._gender == 'female':
+            req_b6 = 1.5
+        
+        else:
+            logger.info('No gender specified')
+            req_b6 = 1.6
+        
+        return req_b6
+
+    def _get_daily_vitamin_a_requirements(self) -> float:
+        '''
+        daily amount of vitamin A is 900 micrograms (mcg) for adult men and 700 mcg for adult women.
+        1 IU = 0.3 mcg
+        '''
+
+        if self._gender == 'male':
+            req_vit_a = 900 / 0.3
+
+        elif self._gender == 'female':
+            req_vit_a = 700 / 0.3
+        
+        else:
+            logger.info('No gender specified')
+            req_vit_a = 800 / 0.3
+        
+        return req_vit_a
+
+    def _get_daily_iron_requirements(self) -> float:
+        '''
+        daily amount of vitamin A is 900 micrograms (mcg) for adult men and 700 mcg for adult women.
+        1 IU = 0.3 mcg
+        '''
+
+        if self._gender == 'male':
+            
+            req_vit_a = 900 / 0.3
+
+        elif self._gender == 'female':
+            req_vit_a = 700 / 0.3
+        
+        else:
+            logger.info('No gender specified')
+            req_vit_a = 800 / 0.3
+        
+        return req_vit_a
+
+    def _get_daily_niacin_requirements(self) -> float:
+        '''
+        recommended daily amount of niacin for adult males is 16 milligrams (mg) a day and for adult women who aren't pregnant, 14 mg a day.
+        '''
+
+        if self._gender == 'male':
+            req_niacin = 16
+
+        elif self._gender == 'female':
+            req_niacin = 14
+        
+        else:
+            logger.info('No gender specified')
+            req_niacin = 15
+        
+        return req_niacin
 
     @staticmethod
     def _calculate_nutrient_from_calories(cals: float, tgt: str, nutrient: str) -> float:
