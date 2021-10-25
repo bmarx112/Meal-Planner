@@ -143,22 +143,28 @@ class NutrientRequirementManager:
         return self._vitamin_a
         
     @property
-    def vitamin_a(self):
+    def niacin(self):
         if not self._niacin:
             self._niacin = self._get_daily_niacin_requirements()
         return self._niacin    
 
     def get_daily_requirements(self) -> dict:  # TODO: Add remaining nutrients to dict
         daily_reqs = {
-            'calories': self.calories,
+            'Calories': self.calories,
             'carbohydrates': self.carbohydrates,
             'fat': self.fat,
             'saturated fat': self.saturated_fat,
             'protein': self.protein,
-            'sugar': self.sugar,
+            'sugars': self.sugar,
             'calcium': self.calcium,
             'dietary fiber': self.dietary_fiber,
-            'vitamin a': self.vitamin_a
+            'vitamin a iu': self.vitamin_a,
+            'vitamin c': self.vitamin_c,
+            'vitamin b6': self.vitamin_b6,
+            'sodium': self.sodium,
+            'folate': self.folate,
+            'cholesterol': self.cholesterol,
+            'niacin equivalents': self.niacin
                     }
         
         return daily_reqs
@@ -337,4 +343,4 @@ if __name__ == '__main__':
                                           wgt_unit='lb',
                                           hgt_unit='ft')
     reqs = test_guy.get_daily_requirements()
-    print(reqs)
+    print(list(reqs.keys()))
