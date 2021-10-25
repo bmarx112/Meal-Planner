@@ -11,7 +11,6 @@ from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import re
-from Data_Management.MySQL.Queries.MySql_Query import pull_meals
 
 __author__ = 'bmarx'
 
@@ -257,10 +256,11 @@ class RecipeWebScrapeManager:
         return count_int
 
 if __name__ == '__main__':
-    test_connect = MySqlManager(database='mealplanner_test')
+    test_connect = MySqlManager(database='mealplanner')
     #test_connect.rebuild_database()
     #scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
     #scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
+
     # print(df)
     
