@@ -1,5 +1,6 @@
 import os.path
 import sys
+from pandas.core.series import Series
 import scipy.spatial as sp
 from numpy.core.arrayprint import printoptions
 from numpy.core.numeric import full
@@ -18,7 +19,7 @@ from matplotlib import pyplot
 from Utilities.helper_functions import cartesian_product_generalized
 from Model.Inputs.nutrition_requirements import NutrientRequirementManager
 from Data_Management.MySQL.mysql_manager import MySqlManager
-from Data_Management.MySQL.Queries.MySql_model_input import model_input_query
+from Data_Management.MySQL.Queries.MySql_model_input import model_input_query, model_input_query_doubled
 
 import logging
 
@@ -26,13 +27,16 @@ __author__ = 'bmarx'
 
 logger = logging.getLogger(__name__)
 
+default_weights = [1]*15  # TODO: add this to new file to hold static values
+
 class DailyPlanGenerator:
 
     def __init__(self,
                  db_connection: MySqlManager,
                  user_nutrition_targets: NutrientRequirementManager,
                  past_plans = None,
-                 num_iterations: int=10000) -> None:
+                 num_iterations: int=10000,
+                 nutrient_weights: list=default_weights) -> None:
         self._sql_connection = db_connection
         self._user_daily_vals = user_nutrition_targets
         self._user_vals_df = pd.DataFrame
@@ -41,8 +45,10 @@ class DailyPlanGenerator:
         self._meal_search_space_normalized = pd.DataFrame()
         self._meal_search_space_base = pd.DataFrame()
         self._meal_nutr_data = pd.DataFrame()
-        self._meal_categories = ['breakfast and brunch', 'lunch', 'dinner']
+        self._meal_categories = ['breakfast and brunch', 'lunch', 'dinner']  # TODO: add this to new file to hold static values
         self._n_iter = num_iterations
+        self._weight_list = nutrient_weights
+        self._obj_weights = pd.Series()
 
     @property
     def user_vals_df(self) -> DataFrame:
@@ -64,12 +70,16 @@ class DailyPlanGenerator:
         if self._meal_nutr_data.empty:
             query_df = self._sql_connection.read_to_dataframe(query=model_input_query(self._valid_nutrients))
 
+            doubled_meals = self._sql_connection.read_to_dataframe(query=model_input_query_doubled(self._valid_nutrients))
+
             nutr_series = pd.Series(self._valid_nutrients).rename('element')
-            meal_ids = query_df.groupby(['Meal_Category', 'Recipe_Id']).size().to_frame(name = 'count').reset_index()
+
+            combo_query_df = pd.concat([query_df, doubled_meals], ignore_index=True)
+            meal_ids = combo_query_df.groupby(['Meal_Category', 'Recipe_Id']).size().to_frame(name = 'count').reset_index()
             meal_ids = meal_ids.drop(['count'], axis=1)
             nutr_meal_mask = cartesian_product_generalized(left=nutr_series, right=meal_ids).rename(columns={0: 'Element', 1: 'Meal_Category', 2: 'Recipe_Id'})
             # Filling NAs with 0 is raising Z score for values already populated
-            full_set = nutr_meal_mask.merge(right=query_df, on=['Recipe_Id', 'Element', 'Meal_Category'], how='left').fillna(0)
+            full_set = nutr_meal_mask.merge(right=combo_query_df, on=['Recipe_Id', 'Element', 'Meal_Category'], how='left').fillna(0)
             self._meal_nutr_data = full_set
             
         return self._meal_nutr_data
@@ -77,7 +87,8 @@ class DailyPlanGenerator:
     @property
     def meal_search_space_normalized(self) -> DataFrame:  # TODO: Put these steps in a method
         if self._meal_search_space_normalized.empty:
-            normalized_qtys = pd.DataFrame(self.meal_nutr_data.groupby(['Meal_Category', 'Element']).transform(lambda x: (x - x.mean()) / x.std())).drop(['Recipe_Id'], axis=1)
+            modified_df = self.meal_nutr_data.drop(['Recipe_Id'], axis=1)
+            normalized_qtys = pd.DataFrame(modified_df.groupby(['Meal_Category', 'Element']).transform(lambda x: (x - x.mean()) / x.std()))  # TODO: Exclude other text columns so they dont throw the error
             full_set = self.meal_nutr_data
             full_set['normalized_qtys'] = normalized_qtys.values
             full_set = full_set.pivot(index=['Meal_Category', 'Recipe_Id'], columns='Element', values='normalized_qtys').reset_index()
@@ -86,13 +97,19 @@ class DailyPlanGenerator:
         return self._meal_search_space_normalized
 
     @property
-    def meal_search_space_base(self) -> DataFrame:  # TODO: Put these steps in a method
+    def meal_search_space_base(self) -> DataFrame:
         if self._meal_search_space_base.empty:
             full_set = self.meal_nutr_data
             full_set = full_set.pivot(index=['Meal_Category', 'Recipe_Id'], columns='Element', values='Quantity').reset_index()
             self._meal_search_space_base = full_set
         
         return self._meal_search_space_base
+    
+    @property
+    def objective_function_weights(self) -> Series:
+        if self._obj_weights.empty:
+            self._obj_weights = pd.Series(self._weight_list)
+        return self._obj_weights
 
     def _generate_candidate(self, current_state: DataFrame) -> list:  # TODO: This is switching between two meals over and over.
         new_arrays = []
@@ -107,21 +124,20 @@ class DailyPlanGenerator:
             cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
             vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
-            perturbation = 4.0 * np.random.rand(self.num_valid_nutrients) - 2.0  # Uniform Sampling
+            perturbation = 2.0 * np.random.rand(self.num_valid_nutrients) - 1.0  # Uniform Sampling
             rnd_target = perturbation + current_vector
-            #print(rnd_target)
+            # print(rnd_target)
             # Using Manhatten distance since we are in high dimensional space 
             dist = sp.distance.cdist(vectorized_search_space, rnd_target, metric='cityblock')
             closest_distance_in_cat_id = np.argmin(dist, axis=0)[0]
 
             closest_recipe_in_cat = cat_search_space.iloc[[closest_distance_in_cat_id], :]
             candidate_recipe_id = closest_recipe_in_cat['Recipe_Id'].reset_index(drop=True)[0]
-            ph_id = cat_search_space['Recipe_Id'].sample(n=1).reset_index(drop=True)[0]
+            # ph_id = cat_search_space['Recipe_Id'].sample(n=1).reset_index(drop=True)[0]
             new_arrays.append(candidate_recipe_id)
-            #new_arrays.append(ph_id)
+            # new_arrays.append(ph_id)
 
         return new_arrays
-
 
     # TODO: add weights to pct diff values before summing
     def _objective(self, meal_list: list) -> float:
@@ -132,9 +148,11 @@ class DailyPlanGenerator:
         daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
 
         comparison_df = daily_nutr_qtys.merge(right=self.user_vals_df, right_on=['index'], left_on=['Element'], how='inner')
-        comparison_df['pct_difference'] = abs((comparison_df['Quantity'] - comparison_df['Sum_Quantity']) / ((comparison_df['Quantity'] + comparison_df['Sum_Quantity']) / 2))
+        comparison_df['pct_difference'] = self._calcualte_pct_diff(quant_1=comparison_df['Quantity'], quant_2=comparison_df['Sum_Quantity'])
 
-        energy = comparison_df['pct_difference'].sum()
+        comparison_df['weighted_diff'] = comparison_df['pct_difference'] * self.objective_function_weights
+
+        energy = comparison_df['weighted_diff'].sum()
 
         return energy
 
@@ -176,6 +194,13 @@ class DailyPlanGenerator:
                 current_state, current_eval = candidate_state, candidate_eval
         return [best, best_eval, scores]
 
+    @staticmethod
+    def _calcualte_pct_diff(quant_1: Series, quant_2: Series) -> Series:
+        quotient = (quant_1 - quant_2) / ((quant_1 + quant_2) / 2)
+        abs_quotient = abs(quotient)
+
+        return abs_quotient
+
 """ 
     # seed the pseudorandom number generator
     seed(1)
@@ -203,24 +228,49 @@ if __name__ == '__main__':
                                           wgt_unit='lb',
                                           hgt_unit='ft')
 
+    weights = [50, 1.2,
+               1, 1,
+               0.8, 0.8,
+               0.5, 0.5,
+               1.2, 0.5,
+               0.5, 0.5,
+               0.3, 0.3,
+               0.3]
+
     test_plan = DailyPlanGenerator(db_connection=test_connect,
                                     user_nutrition_targets=test_guy,
-                                    num_iterations=2000)
+                                    num_iterations=5000,
+                                    nutrient_weights=weights)
+    
+    seed(112)
+    temps = [100]*2
+    temps.append(50)
 
-    seed(1)
-    temps = [200, 100, 50, 25]
+    bfast = []
+    lunch = []
+    dinner = []
+
+    meals = []
     for tmp in temps:
         best, score, scores = test_plan.simulated_annealing(temp=tmp)
         print('f(%s) = %f' % (best, score))
+        
+        bfast.append(best[0])
+        lunch.append(best[1])
+        dinner.append(best[2])
+
+        state_df = test_plan.meal_search_space_base[test_plan.meal_search_space_base['Recipe_Id'].isin(best)]
+        state_df = state_df.drop(['Meal_Category', 'Recipe_Id'], axis=1)
+        daily_nutr_qtys = pd.DataFrame(state_df.groupby([True]*len(state_df)).sum())        
+        daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
+        #meals.append(daily_nutr_qtys)
+
         pyplot.plot(scores, '.-')
         pyplot.xlabel('Improvement Number')
         pyplot.ylabel('Evaluation f(x)')
         pyplot.show()
+    
+    print((bfast))
+    print((lunch))
+    print((dinner))
 
-"""     ind0 = test_plan.meal_search_space_normalized
-    current_state = ind0[ind0['Recipe_Id'].isin([16239, 223042, 16895])]
-    candidates = test_plan._generate_candidate(current_state)
-    candidate_df = ind0[ind0['Recipe_Id'].isin(candidates)]
-    #print(rand_v)
-    obj = test_plan._objective(meal_list=candidates)
-    print(ind0) """

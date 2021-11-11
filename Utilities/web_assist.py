@@ -23,9 +23,10 @@ def make_context() -> ssl.SSLContext:
 @retry(tries=3)
 def get_soup_from_html(url: str, ct, suffix: str = ''):
     formatted_url = url + suffix
-    html = urlopen(formatted_url, context=ct).read()
-    soup = BeautifulSoup(html, "html.parser")
-    return soup
+    with urlopen(formatted_url, context=ct) as html:
+        page = html.read()
+        soup = BeautifulSoup(page, "html.parser")
+        return soup
 
 
 def find_in_url(url: str,
