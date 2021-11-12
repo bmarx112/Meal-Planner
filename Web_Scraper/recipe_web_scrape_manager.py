@@ -66,7 +66,7 @@ class RecipeWebScrapeManager:
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
             self._scanned_sites = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
 
                 executor.submit(self._format_meal_from_soup, category, meal_col, num_rcps)
                 executor.map(self._add_meal_to_queue, recipe_list)
@@ -286,7 +286,7 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=6, choose_cats=True)
+    scr = RecipeWebScrapeManager(page_limit=10, choose_cats=True)
     scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
     
