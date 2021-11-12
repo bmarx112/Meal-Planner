@@ -111,7 +111,7 @@ class DailyPlanGenerator:
             self._obj_weights = pd.Series(self._weight_list)
         return self._obj_weights
 
-    def _generate_candidate(self, current_state: DataFrame) -> list:  # TODO: This is switching between two meals over and over.
+    def _generate_candidate(self, current_state: DataFrame) -> list:
         new_arrays = []
         for meal in self._meal_categories:
 
@@ -124,22 +124,19 @@ class DailyPlanGenerator:
             cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
             vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
-            perturbation = 2.0 * np.random.rand(self.num_valid_nutrients) - 1.0  # Uniform Sampling
+            perturbation = np.random.rand(self.num_valid_nutrients) - 0.5  # Uniform Sampling
             rnd_target = perturbation + current_vector
-            # print(rnd_target)
+            
             # Using Manhatten distance since we are in high dimensional space 
             dist = sp.distance.cdist(vectorized_search_space, rnd_target, metric='cityblock')
             closest_distance_in_cat_id = np.argmin(dist, axis=0)[0]
 
             closest_recipe_in_cat = cat_search_space.iloc[[closest_distance_in_cat_id], :]
             candidate_recipe_id = closest_recipe_in_cat['Recipe_Id'].reset_index(drop=True)[0]
-            # ph_id = cat_search_space['Recipe_Id'].sample(n=1).reset_index(drop=True)[0]
             new_arrays.append(candidate_recipe_id)
-            # new_arrays.append(ph_id)
 
         return new_arrays
 
-    # TODO: add weights to pct diff values before summing
     def _objective(self, meal_list: list) -> float:
         state_df = self.meal_search_space_base[self.meal_search_space_base['Recipe_Id'].isin(meal_list)]
         state_df = state_df.drop(['Meal_Category', 'Recipe_Id'], axis=1)
@@ -201,21 +198,6 @@ class DailyPlanGenerator:
 
         return abs_quotient
 
-""" 
-    # seed the pseudorandom number generator
-    seed(1)
-    # define range for input
-    bounds = asarray([[-5.0, 5.0]])
-    # define the total iterations
-    n_iterations = 1000
-    # define the maximum step size
-    step_size = 0.1
-    # initial temperature
-    temp = 10
-    # perform the simulated annealing search
-    best, score = simulated_annealing(objective, bounds, n_iterations, step_size, temp)
-    print('Done!')
-    print('f(%s) = %f' % (best, score)) """
 
 if __name__ == '__main__':
     test_connect = MySqlManager()
@@ -228,7 +210,7 @@ if __name__ == '__main__':
                                           wgt_unit='lb',
                                           hgt_unit='ft')
 
-    weights = [50, 1.2,
+    weights = [10, 1.2,
                1, 1,
                0.8, 0.8,
                0.5, 0.5,
@@ -263,12 +245,17 @@ if __name__ == '__main__':
         state_df = state_df.drop(['Meal_Category', 'Recipe_Id'], axis=1)
         daily_nutr_qtys = pd.DataFrame(state_df.groupby([True]*len(state_df)).sum())        
         daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
-        #meals.append(daily_nutr_qtys)
+        comparison_df = daily_nutr_qtys.merge(right=test_plan.user_vals_df, right_on=['index'], left_on=['Element'], how='inner')
+        comparison_df['pct_difference'] = test_plan._calcualte_pct_diff(quant_1=comparison_df['Quantity'], quant_2=comparison_df['Sum_Quantity'])
 
+        comparison_df['weighted_diff'] = comparison_df['pct_difference'] * test_plan.objective_function_weights
+        print(comparison_df)
         pyplot.plot(scores, '.-')
         pyplot.xlabel('Improvement Number')
         pyplot.ylabel('Evaluation f(x)')
         pyplot.show()
+
+        
     
     print((bfast))
     print((lunch))
