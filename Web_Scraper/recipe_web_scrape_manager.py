@@ -65,7 +65,6 @@ class RecipeWebScrapeManager:
             # iterate through each recipe in the set
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
-            event = threading.Event()
             self._scanned_sites = 0
             with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
 
@@ -78,7 +77,6 @@ class RecipeWebScrapeManager:
         # Getting HTML for specific recipe page for scraping
         try:
             sp = get_soup_from_html(recipe, self._context)
-            print('got URL')
         except:
             self._scanned_sites += 1
         self._pipeline.put((recipe, sp))
@@ -88,7 +86,6 @@ class RecipeWebScrapeManager:
             try:
                 recipe, sp = self._pipeline.get(timeout=1)
                 self._scanned_sites += 1
-                print(self._scanned_sites)
             except:
                 print('nothing')
                 continue
