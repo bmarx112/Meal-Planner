@@ -258,10 +258,10 @@ class RecipeWebScrapeManager:
         return count_int
 
 if __name__ == '__main__':
-    test_connect = MySqlManager(database='mealplanner')
-    #test_connect.rebuild_database()
-    #scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
-    #scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
+    test_connect = MySqlManager(database='mealplanner_test')
+    test_connect.rebuild_database()
+    scr = RecipeWebScrapeManager(page_limit=50, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=150, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
 
     # print(df)
