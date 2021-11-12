@@ -289,6 +289,4 @@ if __name__ == '__main__':
     scr = RecipeWebScrapeManager(page_limit=6, choose_cats=True)
     scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
-
-    # print(df)
     
