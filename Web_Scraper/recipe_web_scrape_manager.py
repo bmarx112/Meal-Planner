@@ -4,6 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from collections import defaultdict
 from Utilities.web_assist import (prepend_root_to_url, make_context, get_soup_from_html, find_in_url,
                                   get_website_chunk_by_class, format_dict_from_soup)
+from Utilities.helper_functions import timeit
 from datetime import datetime as dt
 from typing import Union
 from Objects.meal_info import MealInfo
@@ -45,6 +46,7 @@ class RecipeWebScrapeManager:
             self._recipe_link_dict = self._get_recipe_links()
         return self._recipe_link_dict
 
+    @timeit
     def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
         meals_from_scrape = self._upload_to_mysql(db, dump_limit)
         if len(meals_from_scrape.collection) > 0:
