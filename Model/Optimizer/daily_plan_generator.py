@@ -57,6 +57,7 @@ class DailyPlanGenerator:
                                                         orient='index',
                                                         columns=['Quantity'])
             self._user_vals_df = self._user_vals_df.reset_index()
+            self._user_vals_df = self._user_vals_df.rename(columns={'index': 'Element'})                                            
         return self._user_vals_df
 
     @property
@@ -113,6 +114,7 @@ class DailyPlanGenerator:
 
     def _generate_candidate(self, current_state: DataFrame) -> list:
         new_arrays = []
+        perturbation = np.random.rand(self.num_valid_nutrients) - 0.5 
         for meal in self._meal_categories:
 
             current_meal = current_state[current_state['Meal_Category'] == meal]
@@ -124,7 +126,7 @@ class DailyPlanGenerator:
             cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
             vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
-            perturbation = np.random.rand(self.num_valid_nutrients) - 0.5  # Uniform Sampling
+            # perturbation = np.random.rand(self.num_valid_nutrients) - 0.5  # Uniform Sampling
             rnd_target = perturbation + current_vector
             
             # Using Manhatten distance since we are in high dimensional space 
@@ -137,19 +139,24 @@ class DailyPlanGenerator:
 
         return new_arrays
 
-    def _objective(self, meal_list: list) -> float:
+    def blend_target_with_curr(self, meal_list: list) -> DataFrame:
         state_df = self.meal_search_space_base[self.meal_search_space_base['Recipe_Id'].isin(meal_list)]
         state_df = state_df.drop(['Meal_Category', 'Recipe_Id'], axis=1)
 
         daily_nutr_qtys = pd.DataFrame(state_df.groupby([True]*len(state_df)).sum())        
         daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
 
-        comparison_df = daily_nutr_qtys.merge(right=self.user_vals_df, right_on=['index'], left_on=['Element'], how='inner')
+        comparison_df = daily_nutr_qtys.merge(right=self.user_vals_df, on=['Element'], how='inner')
         comparison_df['pct_difference'] = self._calcualte_pct_diff(quant_1=comparison_df['Quantity'], quant_2=comparison_df['Sum_Quantity'])
 
         comparison_df['weighted_diff'] = comparison_df['pct_difference'] * self.objective_function_weights
 
-        energy = comparison_df['weighted_diff'].sum()
+        return comparison_df
+
+    def _calculate_energy(self, curr_state: list) -> float:
+        compare_df = self.blend_target_with_curr(curr_state)
+
+        energy = compare_df['weighted_diff'].sum()
 
         return energy
 
@@ -160,7 +167,7 @@ class DailyPlanGenerator:
         current_state = self.meal_search_space_normalized.sample(frac=1).groupby('Meal_Category', sort=False).head(1)
         current_ids = current_state['Recipe_Id'].reset_index(drop=True).tolist()
         # evaluate the initial point
-        current_eval = self._objective(current_ids)
+        current_eval = self._calculate_energy(current_ids)
         best, best_eval = current_ids, current_eval
         # current working solution
         scores = []
@@ -170,7 +177,7 @@ class DailyPlanGenerator:
             candidate_ids = self._generate_candidate(current_state)
             candidate_state = self.meal_search_space_normalized[self.meal_search_space_normalized['Recipe_Id'].isin(candidate_ids)]
             # evaluate candidate point
-            candidate_eval = self._objective(candidate_ids)
+            candidate_eval = self._calculate_energy(candidate_ids)
             
             # check for new best solution
             if candidate_eval < current_eval:
@@ -210,7 +217,7 @@ if __name__ == '__main__':
                                           wgt_unit='lb',
                                           hgt_unit='ft')
 
-    weights = [10, 1.2,
+    weights = [1.8, 1.2,
                1, 1,
                0.8, 0.8,
                0.5, 0.5,
@@ -225,14 +232,13 @@ if __name__ == '__main__':
                                     nutrient_weights=weights)
     
     seed(112)
-    temps = [100]*2
-    temps.append(50)
+    interval = 50
+    temps = [(i+1)*interval for i in range(3)]
 
     bfast = []
     lunch = []
     dinner = []
 
-    meals = []
     for tmp in temps:
         best, score, scores = test_plan.simulated_annealing(temp=tmp)
         print('f(%s) = %f' % (best, score))
@@ -241,23 +247,15 @@ if __name__ == '__main__':
         lunch.append(best[1])
         dinner.append(best[2])
 
-        state_df = test_plan.meal_search_space_base[test_plan.meal_search_space_base['Recipe_Id'].isin(best)]
-        state_df = state_df.drop(['Meal_Category', 'Recipe_Id'], axis=1)
-        daily_nutr_qtys = pd.DataFrame(state_df.groupby([True]*len(state_df)).sum())        
-        daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
-        comparison_df = daily_nutr_qtys.merge(right=test_plan.user_vals_df, right_on=['index'], left_on=['Element'], how='inner')
-        comparison_df['pct_difference'] = test_plan._calcualte_pct_diff(quant_1=comparison_df['Quantity'], quant_2=comparison_df['Sum_Quantity'])
-
-        comparison_df['weighted_diff'] = comparison_df['pct_difference'] * test_plan.objective_function_weights
+        comparison_df = test_plan.blend_target_with_curr(best)
+        comparison_df = comparison_df.drop(['weighted_diff'], axis=1)
         print(comparison_df)
+
         pyplot.plot(scores, '.-')
         pyplot.xlabel('Improvement Number')
         pyplot.ylabel('Evaluation f(x)')
         pyplot.show()
 
-        
-    
     print((bfast))
     print((lunch))
     print((dinner))
-

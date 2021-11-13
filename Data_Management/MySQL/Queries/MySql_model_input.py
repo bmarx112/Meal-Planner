@@ -1,6 +1,6 @@
 def model_input_query(nutrients: list) -> str:
     
-    valid_elements = s = '(\'' + '\', \''.join(nutrients) + '\')'
+    valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
 
     pull_nutrients = f'''
     SELECT m.Meal_Category, m.Recipe_Id, n.Element, n.Quantity
@@ -15,7 +15,7 @@ def model_input_query(nutrients: list) -> str:
 
 def model_input_query_doubled(nutrients: list) -> str:
     
-    valid_elements = s = '(\'' + '\', \''.join(nutrients) + '\')'
+    valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
 
     pull_nutrients = f'''
     SELECT m.Meal_Category, CONCAT(m.Recipe_Id, '_2') as Recipe_Id, n.Element, n.Quantity * 2 as Quantity
