@@ -114,11 +114,19 @@ class DailyPlanGenerator:
 
     def _generate_candidate(self, current_state: DataFrame) -> list:
         new_arrays = []
-        perturbation = np.random.rand(self.num_valid_nutrients) - 0.5 
+        perturbation = 2 * np.random.rand(self.num_valid_nutrients) - 1.0 
+        id = np.random.randint(0, len(self._meal_categories))
+        delta_meal = self._meal_categories[id]
         for meal in self._meal_categories:
 
             current_meal = current_state[current_state['Meal_Category'] == meal]
             current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
+
+            if delta_meal != meal:
+                # Even if we dont want to change the recipe, we ought to preserve the order!
+                new_arrays.append(current_meal_id)
+                continue
+
             current_vector = current_meal.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
             # Exclude current state meal and turn search space df into (n, len(nutrients)) numpy array
@@ -228,8 +236,9 @@ if __name__ == '__main__':
 
     test_plan = DailyPlanGenerator(db_connection=test_connect,
                                     user_nutrition_targets=test_guy,
-                                    num_iterations=5000,
-                                    nutrient_weights=weights)
+                                    num_iterations=5000
+                                    #,nutrient_weights=weights
+                                    )
     
     seed(112)
     interval = 50
