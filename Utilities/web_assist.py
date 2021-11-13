@@ -23,8 +23,9 @@ def make_context() -> ssl.SSLContext:
 @retry(tries=3)
 def get_soup_from_html(url: str, ct, suffix: str = ''):
     formatted_url = url + suffix
-    html = urlopen(formatted_url, context=ct).read()
-    soup = BeautifulSoup(html, "html.parser")
+    with urlopen(formatted_url, context=ct) as html:
+        page = html.read()
+        soup = BeautifulSoup(page, "html.parser")
     return soup
 
 
