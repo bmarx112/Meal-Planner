@@ -2,8 +2,6 @@ import os.path
 import sys
 from pandas.core.series import Series
 import scipy.spatial as sp
-from numpy.core.arrayprint import printoptions
-from numpy.core.numeric import full
 from pandas.core.frame import DataFrame
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -113,39 +111,35 @@ class DailyPlanGenerator:
         return self._obj_weights
 
     def _generate_candidate(self, current_state: DataFrame) -> list:
-        new_arrays = []
         perturbation = 2 * np.random.rand(self.num_valid_nutrients) - 1.0 
-        id = np.random.randint(0, len(self._meal_categories))
-        delta_meal = self._meal_categories[id]
-        for meal in self._meal_categories:
+        target_recipe = current_state['Recipe_Id'].sample(n=1).values[0]
 
-            current_meal = current_state[current_state['Meal_Category'] == meal]
-            current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
+        state_list = current_state['Recipe_Id'].tolist()
+        replaced_item_loc = state_list.index(target_recipe)
+        # for meal_id in current_state['Recipe_Id']:
 
-            if delta_meal != meal:
-                # Even if we dont want to change the recipe, we ought to preserve the order!
-                new_arrays.append(current_meal_id)
-                continue
+        current_meal = current_state[current_state['Recipe_Id'] == target_recipe]
+        current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
 
-            current_vector = current_meal.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
+        current_vector = current_meal.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
+        category = current_meal['Meal_Category'].values[0]
+        # Exclude current state meal and turn search space df into (n, len(nutrients)) numpy array
+        cat_search_space = self.meal_search_space_normalized[self.meal_search_space_normalized['Meal_Category'] == category]
+        cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
+        vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
-            # Exclude current state meal and turn search space df into (n, len(nutrients)) numpy array
-            cat_search_space = self.meal_search_space_normalized[self.meal_search_space_normalized['Meal_Category'] == meal]
-            cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
-            vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
+        rnd_target = perturbation + current_vector
+        
+        # Using Manhatten distance since we are in high dimensional space 
+        dist = sp.distance.cdist(vectorized_search_space, rnd_target, metric='cityblock')
+        closest_distance_in_cat_id = np.argmin(dist, axis=0)[0]
 
-            # perturbation = np.random.rand(self.num_valid_nutrients) - 0.5  # Uniform Sampling
-            rnd_target = perturbation + current_vector
-            
-            # Using Manhatten distance since we are in high dimensional space 
-            dist = sp.distance.cdist(vectorized_search_space, rnd_target, metric='cityblock')
-            closest_distance_in_cat_id = np.argmin(dist, axis=0)[0]
+        closest_recipe_in_cat = cat_search_space.iloc[[closest_distance_in_cat_id], :]
+        candidate_recipe_id = closest_recipe_in_cat['Recipe_Id'].reset_index(drop=True)[0]
 
-            closest_recipe_in_cat = cat_search_space.iloc[[closest_distance_in_cat_id], :]
-            candidate_recipe_id = closest_recipe_in_cat['Recipe_Id'].reset_index(drop=True)[0]
-            new_arrays.append(candidate_recipe_id)
+        state_list[replaced_item_loc] = candidate_recipe_id
 
-        return new_arrays
+        return state_list
 
     def blend_target_with_curr(self, meal_list: list) -> DataFrame:
         state_df = self.meal_search_space_base[self.meal_search_space_base['Recipe_Id'].isin(meal_list)]
@@ -154,7 +148,7 @@ class DailyPlanGenerator:
         daily_nutr_qtys = pd.DataFrame(state_df.groupby([True]*len(state_df)).sum())        
         daily_nutr_qtys = daily_nutr_qtys.melt(var_name='Element', value_name='Sum_Quantity')
 
-        comparison_df = daily_nutr_qtys.merge(right=self.user_vals_df, on=['Element'], how='inner')
+        comparison_df = daily_nutr_qtys.merge(right=self.user_vals_df, on=['Element'], how='right')
         comparison_df['pct_difference'] = self._calcualte_pct_diff(quant_1=comparison_df['Quantity'], quant_2=comparison_df['Sum_Quantity'])
 
         comparison_df['weighted_diff'] = comparison_df['pct_difference'] * self.objective_function_weights
@@ -170,9 +164,10 @@ class DailyPlanGenerator:
 
     # TODO: refine/complete simulated annealing algorithm
     def simulated_annealing(self, temp):
-
+        stall_counter = 0
+        cutoff_threshold = 200
         # generate an initial meal set
-        current_state = self.meal_search_space_normalized.sample(frac=1).groupby('Meal_Category', sort=False).head(1)
+        current_state = self.meal_search_space_normalized.sample(frac=1).groupby('Meal_Category', sort=False).head(2)
         current_ids = current_state['Recipe_Id'].reset_index(drop=True).tolist()
         # evaluate the initial point
         current_eval = self._calculate_energy(current_ids)
@@ -186,14 +181,13 @@ class DailyPlanGenerator:
             candidate_state = self.meal_search_space_normalized[self.meal_search_space_normalized['Recipe_Id'].isin(candidate_ids)]
             # evaluate candidate point
             candidate_eval = self._calculate_energy(candidate_ids)
-            
+            stall_counter += 1
             # check for new best solution
             if candidate_eval < current_eval:
                 # store new best point
                 best, best_eval = candidate_ids, candidate_eval
                 scores.append(best_eval)
                 # report progress
-                # print('>%d f(%s) = %.5f' % (i, best, best_eval))
             # difference between candidate and current point evaluation
             diff = candidate_eval - current_eval
             # calculate temperature for current epoch
@@ -204,6 +198,10 @@ class DailyPlanGenerator:
             if diff < 0 or rand() < metropolis:
                 # store the new current point
                 current_state, current_eval = candidate_state, candidate_eval
+                stall_counter = 0
+            
+            if stall_counter > cutoff_threshold:
+                break
         return [best, best_eval, scores]
 
     @staticmethod
@@ -225,39 +223,42 @@ if __name__ == '__main__':
                                           wgt_unit='lb',
                                           hgt_unit='ft')
 
-    weights = [1.8, 1.2,
+    weights = [2.5, 1.5,
+               1, 1.5,
                1, 1,
-               0.8, 0.8,
-               0.5, 0.5,
-               1.2, 0.5,
-               0.5, 0.5,
-               0.3, 0.3,
-               0.3]
+               1, 1.5,
+               0.25, 1,
+               0.25, 1,
+               0.25, 1,
+               0.25]
 
     test_plan = DailyPlanGenerator(db_connection=test_connect,
                                     user_nutrition_targets=test_guy,
-                                    num_iterations=5000
-                                    #,nutrient_weights=weights
+                                    num_iterations=2500
+                                    ,nutrient_weights=weights
                                     )
     
-    seed(112)
-    interval = 50
+    # seed(684768)
+    interval = 100
     temps = [(i+1)*interval for i in range(3)]
-
+    temps = [100]*10
     bfast = []
     lunch = []
     dinner = []
+    score_list = []
 
     for tmp in temps:
         best, score, scores = test_plan.simulated_annealing(temp=tmp)
-        print('f(%s) = %f' % (best, score))
+        print('f(%s, theta) = %f' % (best, score))
         
         bfast.append(best[0])
         lunch.append(best[1])
         dinner.append(best[2])
 
+        score_list.append(score)
+
         comparison_df = test_plan.blend_target_with_curr(best)
-        comparison_df = comparison_df.drop(['weighted_diff'], axis=1)
+        comparison_df = comparison_df.drop(['pct_difference'], axis=1)
         print(comparison_df)
 
         pyplot.plot(scores, '.-')
@@ -268,3 +269,4 @@ if __name__ == '__main__':
     print((bfast))
     print((lunch))
     print((dinner))
+    print(score_list)
