@@ -23,4 +23,8 @@ For each of the three meal slots:
 3. With this new vector, find the new closest meal within the n-d 'nutrient' space, assign it to the respective meal slot for the new candidate
 
 ### Acceptance Probability Function
-1. The traditional Metropolis selection criterion will be used: e^(-(E(s0) - E(s1))/T)
+1. The traditional Metropolis selection criterion will be used: $${e^(\frac{-(E(s_{0}) - E(s_{1}))}{T})}$$
+
+### Similarity of Ingredients between Proposed State and Previous Days' States
+1. Instead of nutrients, we will use the presence and quantity of ingredients to discern similarity between meals. Meals will be evaluated within their own category: breakfast vs breakfast, lunch vs lunch, etc.
+2. Jaccard Index: Quantify similarity of presence of elements in category <i>i</i>. This will not account for varying magnitudes of ingredient amount. 

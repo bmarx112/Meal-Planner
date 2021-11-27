@@ -66,7 +66,7 @@ class RecipeWebScrapeManager:
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
             self._scanned_sites = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
 
                 executor.submit(self._format_meal_from_soup, category, meal_col, num_rcps)
                 executor.map(self._add_meal_to_queue, recipe_list)
@@ -75,10 +75,12 @@ class RecipeWebScrapeManager:
 
     def _add_meal_to_queue(self, recipe: str):
         # Getting HTML for specific recipe page for scraping
+        ctx = make_context()
         try:
-            sp = get_soup_from_html(recipe, self._context)
+            sp = get_soup_from_html(recipe, ctx, timeout=20)
         except:
             self._scanned_sites += 1
+            print('warning')
         self._pipeline.put((recipe, sp))
 
     def _format_meal_from_soup(self, cat: str, meal_col: MealCollection, rec_lng: int):
@@ -86,10 +88,11 @@ class RecipeWebScrapeManager:
             try:
                 recipe, sp = self._pipeline.get(timeout=1)
                 self._scanned_sites += 1
+                print(recipe)
             except:
-                print('nothing')
-                continue
-            try:    
+               print(rec_lng, self._scanned_sites)
+               continue
+            try:
                 meal_name = self._get_recipe_name(sp)
                 nutrition_data = self._get_nutrient_data_for_meal(sp)
                 ingredient_data = self._get_cooking_ingredients(sp)
@@ -210,17 +213,34 @@ class RecipeWebScrapeManager:
         return content
 
     @staticmethod
-    def _get_cooking_ingredients(soup) -> list:
+    def _get_cooking_ingredients(soup) -> list[dict]:
         item_list = []
         ingredients_table = get_website_chunk_by_class(soup,
                                                        'ul',
                                                        'ingredients-section')
 
-        ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
+        #ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
+        ing_components = ingredients_table.find_all('input')
+
 
         for item in ing_components:
-            item_str = str(item.string)
-            item_list.append(item_str)
+
+            try:
+                amt = item['data-init-quantity']
+            except:
+                amt = .01
+            
+            try:
+                name = item['data-ingredient']
+            except:
+                continue
+
+            info_dict = {
+                'quantity': amt,
+                'ingredient': name
+            }
+
+            item_list.append(info_dict)
         return item_list
 
     # TODO: Instruction steps that contain links are not populating. they appear as 'None.' Find out why!
@@ -286,7 +306,7 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=80, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=2, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=10, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
     

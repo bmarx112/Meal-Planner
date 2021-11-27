@@ -17,7 +17,7 @@ from matplotlib import pyplot
 from Utilities.helper_functions import cartesian_product_generalized
 from Model.Inputs.nutrition_requirements import NutrientRequirementManager
 from Data_Management.MySQL.mysql_manager import MySqlManager
-from Data_Management.MySQL.Queries.MySql_model_input import model_input_query, model_input_query_doubled
+from Data_Management.MySQL.Queries.MySql_model_input import model_nutrition_query, model_nutrition_query_doubled
 
 import logging
 
@@ -67,13 +67,15 @@ class DailyPlanGenerator:
     @property
     def meal_nutr_data(self) -> DataFrame:  # TODO: Put these steps in a method
         if self._meal_nutr_data.empty:
-            query_df = self._sql_connection.read_to_dataframe(query=model_input_query(self._valid_nutrients))
+            query_df = self._sql_connection.read_to_dataframe(query=model_nutrition_query(self._valid_nutrients))
 
-            doubled_meals = self._sql_connection.read_to_dataframe(query=model_input_query_doubled(self._valid_nutrients))
+            doubled_meals = self._sql_connection.read_to_dataframe(query=model_nutrition_query_doubled(self._valid_nutrients))
 
             nutr_series = pd.Series(self._valid_nutrients).rename('element')
 
             combo_query_df = pd.concat([query_df, doubled_meals], ignore_index=True)
+            combo_query_df['Recipe_Id'] = combo_query_df['Recipe_Id'].astype('str')
+
             meal_ids = combo_query_df.groupby(['Meal_Category', 'Recipe_Id']).size().to_frame(name = 'count').reset_index()
             meal_ids = meal_ids.drop(['count'], axis=1)
             nutr_meal_mask = cartesian_product_generalized(left=nutr_series, right=meal_ids).rename(columns={0: 'Element', 1: 'Meal_Category', 2: 'Recipe_Id'})
@@ -112,13 +114,11 @@ class DailyPlanGenerator:
 
     def _generate_candidate(self, current_state: DataFrame) -> list:
         perturbation = 2 * np.random.rand(self.num_valid_nutrients) - 1.0 
-        target_recipe = current_state['Recipe_Id'].sample(n=1).values[0]
+        current_meal = current_state.sample(n=1)
 
         state_list = current_state['Recipe_Id'].tolist()
-        replaced_item_loc = state_list.index(target_recipe)
-        # for meal_id in current_state['Recipe_Id']:
+        replaced_item_loc = state_list.index(current_meal['Recipe_Id'].values[0])
 
-        current_meal = current_state[current_state['Recipe_Id'] == target_recipe]
         current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
 
         current_vector = current_meal.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
@@ -214,9 +214,9 @@ class DailyPlanGenerator:
 
 if __name__ == '__main__':
     test_connect = MySqlManager()
-    test_guy = NutrientRequirementManager(weight=177,
+    test_guy = NutrientRequirementManager(weight=180,
                                           height=6.08,
-                                          age=26.5,
+                                          age=26.8,
                                           gender='male',
                                           weight_goal='gain',
                                           activity='medium',
@@ -240,8 +240,8 @@ if __name__ == '__main__':
     
     # seed(684768)
     interval = 100
-    temps = [(i+1)*interval for i in range(3)]
-    temps = [100]*10
+    #temps = [(i+1)*interval for i in range(3)]
+    temps = [100]*3
     bfast = []
     lunch = []
     dinner = []
@@ -266,7 +266,7 @@ if __name__ == '__main__':
         pyplot.ylabel('Evaluation f(x)')
         pyplot.show()
 
-    print((bfast))
-    print((lunch))
-    print((dinner))
+    print(bfast)
+    print(lunch)
+    print(dinner)
     print(score_list)

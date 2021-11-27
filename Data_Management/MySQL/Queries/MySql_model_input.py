@@ -1,4 +1,4 @@
-def model_input_query(nutrients: list) -> str:
+def model_nutrition_query(nutrients: list) -> str:
     
     valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
 
@@ -13,7 +13,7 @@ def model_input_query(nutrients: list) -> str:
 
     return pull_nutrients
 
-def model_input_query_doubled(nutrients: list) -> str:
+def model_nutrition_query_doubled(nutrients: list) -> str:
     
     valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
 
@@ -27,3 +27,9 @@ def model_input_query_doubled(nutrients: list) -> str:
     '''
 
     return pull_nutrients
+
+def model_ingredient_query() -> str:
+    
+    pull_ingredients = '''
+        SELECT 
+        '''
