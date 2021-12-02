@@ -225,12 +225,12 @@ if __name__ == '__main__':
 
     weights = [2.5, 1.5,
                1, 1.5,
-               1, 1,
+               1.2, 1,
                1, 1.5,
                0.25, 1,
                0.25, 1,
                0.25, 1,
-               0.25]
+               0.05]
 
     test_plan = DailyPlanGenerator(db_connection=test_connect,
                                     user_nutrition_targets=test_guy,
@@ -241,7 +241,7 @@ if __name__ == '__main__':
     # seed(684768)
     interval = 100
     #temps = [(i+1)*interval for i in range(3)]
-    temps = [100]*3
+    temps = [100]*4
     bfast = []
     lunch = []
     dinner = []

@@ -41,6 +41,7 @@ init_query = [
             Recipe_Id     INT NOT NULL,
             Ingredient_Name   VARCHAR(255),
             Ingredient_Quantity   FLOAT,
+            Ingredient_Unit   VARCHAR(50),
             Date_Uploaded   timestamp not null default current_timestamp,
             PRIMARY KEY (Ingredient_Id),
             FOREIGN KEY (Recipe_Id) REFERENCES Meal(Recipe_Id)

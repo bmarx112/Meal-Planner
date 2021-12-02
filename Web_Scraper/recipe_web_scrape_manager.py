@@ -66,21 +66,20 @@ class RecipeWebScrapeManager:
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
             self._scanned_sites = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
 
                 executor.submit(self._format_meal_from_soup, category, meal_col, num_rcps)
                 executor.map(self._add_meal_to_queue, recipe_list)
 
         return meal_col
 
-    def _add_meal_to_queue(self, recipe: str):
+    def _add_meal_to_queue(self, recipe: str):  #TODO: Refactor so each thread received own context, and context is not re-created each time the method runs!
         # Getting HTML for specific recipe page for scraping
         ctx = make_context()
         try:
             sp = get_soup_from_html(recipe, ctx, timeout=20)
         except:
             self._scanned_sites += 1
-            print('warning')
         self._pipeline.put((recipe, sp))
 
     def _format_meal_from_soup(self, cat: str, meal_col: MealCollection, rec_lng: int):
@@ -225,19 +224,25 @@ class RecipeWebScrapeManager:
 
         for item in ing_components:
 
-            try:
-                amt = item['data-init-quantity']
-            except:
-                amt = .01
-            
-            try:
-                name = item['data-ingredient']
-            except:
+            if not item['data-ingredient']:
                 continue
+
+            name = item['data-ingredient']
+
+            if not item['data-init-quantity']:
+                amt = .01
+            else:
+                amt = item['data-init-quantity']
+
+            if not item['data-unit']:  # TODO: Strip special characters, as well as plural 's' ending
+                unit = 'item'
+            else:
+                unit = item['data-unit']
 
             info_dict = {
                 'quantity': amt,
-                'ingredient': name
+                'ingredient': name,
+                'unit': unit
             }
 
             item_list.append(info_dict)
@@ -304,9 +309,9 @@ class RecipeWebScrapeManager:
         return count_int
 
 if __name__ == '__main__':
-    test_connect = MySqlManager(database='mealplanner')
+    test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=2, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=10, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=3, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=15, db=test_connect)
     # df = test_connect.read_to_dataframe(pull_meals)
     

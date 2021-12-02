@@ -114,7 +114,8 @@ class MySqlManager:
                 mealdata = (
                             ing['recipe_id'],
                             element['ingredient'],
-                            element['quantity']
+                            element['quantity'],
+                            element['unit']
                             )
                 injection.append(mealdata)
         self.execute_query(insert_ingredients, injection)
