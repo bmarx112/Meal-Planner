@@ -9,7 +9,7 @@ from Data_Management.MySQL.Queries.MySql_init import init_query
 from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ingredients, 
                                                         insert_instructions, insert_nutrition, insert_mealscope)
 import logging
-from Data_Management.MySQL.Queries.MySql_model_input import model_nutrition_query
+from Data_Management.MySQL.Queries.MySql_model_input import model_nutrition_query_with_doubled
 
 
 __author__ = 'bmarx'
@@ -167,5 +167,5 @@ class MySqlManager:
 if __name__ == '__main__':
     test_connect = MySqlManager()
     ls = ['Calories', 'carbohydrates', 'fat', 'saturated fat', 'protein', 'sugar', 'calcium', 'dietary fiber', 'vitamin a iu', 'vitamin c', 'vitamin b6', 'sodium', 'folate', 'cholesterol', 'niacin equivalents']
-    df_output = test_connect.read_to_dataframe(query=model_nutrition_query(ls))
+    df_output = test_connect.read_to_dataframe(query=model_nutrition_query_with_doubled(ls))
     print(df_output)
