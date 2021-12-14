@@ -73,7 +73,7 @@ class RecipeWebScrapeManager:
 
         return meal_col
 
-    def _add_meal_to_queue(self, recipe: str):  #TODO: Refactor so each thread received own context, and context is not re-created each time the method runs!
+    def _add_meal_to_queue(self, recipe: str):  #TODO: Refactor so each thread receives own context, and context is not re-created each time the method runs!
         # Getting HTML for specific recipe page for scraping
         ctx = make_context()
         try:
@@ -313,5 +313,4 @@ if __name__ == '__main__':
     test_connect.rebuild_database()
     scr = RecipeWebScrapeManager(page_limit=3, choose_cats=True)
     scr.dump_scrape_data_to_db(dump_limit=15, db=test_connect)
-    # df = test_connect.read_to_dataframe(pull_meals)
     

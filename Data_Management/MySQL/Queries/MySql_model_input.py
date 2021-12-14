@@ -38,5 +38,33 @@ def model_nutrition_query_doubled(nutrients: list) -> str:
 def model_ingredient_query() -> str:
     
     pull_ingredients = '''
-        SELECT 
+        SELECT m.Meal_Category, i.Recipe_Id, i.Ingredient_Name, i.Ingredient_Quantity
+        FROM ingredients i 
+        JOIN Meal m
+        ON m.Recipe_Id = i.Recipe_Id
+        UNION ALL
+        SELECT m.Meal_Category, CONCAT(i.Recipe_Id, '_2') as Recipe_Id, i.Ingredient_Name, i.Ingredient_Quantity * 2 as Ingredient_Quantity
+        FROM ingredients i
+        JOIN Meal m
+        ON m.Recipe_Id = i.Recipe_Id
         '''
+
+    return pull_ingredients
+
+def model_output_recipe_names(nutrients: list) -> str:
+
+    valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
+
+    pull_names = f'''
+        SELECT Meal_Category, Meal_Name, Recipe_Id
+        FROM (
+            SELECT Meal_Category, CAST(Recipe_Id as CHAR) as Recipe_Id, Meal_Name
+            FROM Meal m
+            UNION ALL
+            SELECT Meal_Category, CONCAT(Recipe_Id, '_2') as Recipe_Id, CONCAT(Meal_Name, ' x2') as Meal_Name 
+            FROM Meal m
+        ) source
+        WHERE CAST(Recipe_Id as CHAR) in {valid_elements}
+    '''
+
+    return pull_names

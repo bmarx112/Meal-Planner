@@ -1,5 +1,7 @@
 import os.path
 import sys
+from typing import List, Union
+from pandas.core.indexes.timedeltas import timedelta_range
 from pandas.core.series import Series
 import scipy.spatial as sp
 from pandas.core.frame import DataFrame
@@ -12,12 +14,12 @@ from numpy import exp
 from numpy.random import randn
 from numpy.random import rand
 from numpy.random import seed
-from matplotlib import pyplot
+from matplotlib import pyplot, use
 
 from Utilities.helper_functions import cartesian_product_generalized
 from Model.Inputs.nutrition_requirements import NutrientRequirementManager
 from Data_Management.MySQL.mysql_manager import MySqlManager
-from Data_Management.MySQL.Queries.MySql_model_input import model_nutrition_query, model_nutrition_query_doubled
+from Data_Management.MySQL.Queries.MySql_model_input import model_ingredient_query, model_nutrition_query_with_doubled, model_output_recipe_names
 
 import logging
 
@@ -27,14 +29,15 @@ logger = logging.getLogger(__name__)
 
 default_weights = [1]*15  # TODO: add this to new file to hold static values
 
-class DailyPlanGenerator:
+class PlanGenerator:
 
     def __init__(self,
                  db_connection: MySqlManager,
                  user_nutrition_targets: NutrientRequirementManager,
-                 past_plans = None,
                  num_iterations: int=10000,
-                 nutrient_weights: list=default_weights) -> None:
+                 nutrient_weights: list=default_weights,
+                 temp: int = 150,
+                 similarity_smoothing_factor: float = 0.75) -> None:
         self._sql_connection = db_connection
         self._user_daily_vals = user_nutrition_targets
         self._user_vals_df = pd.DataFrame
@@ -43,10 +46,15 @@ class DailyPlanGenerator:
         self._meal_search_space_normalized = pd.DataFrame()
         self._meal_search_space_base = pd.DataFrame()
         self._meal_nutr_data = pd.DataFrame()
+        self._meal_ingredients = pd.DataFrame()
         self._meal_categories = ['breakfast and brunch', 'lunch', 'dinner']  # TODO: add this to new file to hold static values
         self._n_iter = num_iterations
+        self._temp = temp
         self._weight_list = nutrient_weights
-        self._obj_weights = pd.Series()
+        self._similarity_smoothing_factor = similarity_smoothing_factor
+        self._obj_weights = pd.Series(dtype=float)
+        self.past_plans = {}
+        
 
     @property
     def user_vals_df(self) -> DataFrame:
@@ -67,20 +75,17 @@ class DailyPlanGenerator:
     @property
     def meal_nutr_data(self) -> DataFrame:  # TODO: Put these steps in a method
         if self._meal_nutr_data.empty:
-            query_df = self._sql_connection.read_to_dataframe(query=model_nutrition_query(self._valid_nutrients))
-
-            doubled_meals = self._sql_connection.read_to_dataframe(query=model_nutrition_query_doubled(self._valid_nutrients))
+            query_df = self._sql_connection.read_to_dataframe(query=model_nutrition_query_with_doubled(self._valid_nutrients))
 
             nutr_series = pd.Series(self._valid_nutrients).rename('element')
 
-            combo_query_df = pd.concat([query_df, doubled_meals], ignore_index=True)
-            combo_query_df['Recipe_Id'] = combo_query_df['Recipe_Id'].astype('str')
+            query_df['Recipe_Id'] = query_df['Recipe_Id'].astype('str')
 
-            meal_ids = combo_query_df.groupby(['Meal_Category', 'Recipe_Id']).size().to_frame(name = 'count').reset_index()
+            meal_ids = query_df.groupby(['Meal_Category', 'Recipe_Id']).size().to_frame(name = 'count').reset_index()
             meal_ids = meal_ids.drop(['count'], axis=1)
             nutr_meal_mask = cartesian_product_generalized(left=nutr_series, right=meal_ids).rename(columns={0: 'Element', 1: 'Meal_Category', 2: 'Recipe_Id'})
             # Filling NAs with 0 is raising Z score for values already populated
-            full_set = nutr_meal_mask.merge(right=combo_query_df, on=['Recipe_Id', 'Element', 'Meal_Category'], how='left').fillna(0)
+            full_set = nutr_meal_mask.merge(right=query_df, on=['Recipe_Id', 'Element', 'Meal_Category'], how='left').fillna(0)
             self._meal_nutr_data = full_set
             
         return self._meal_nutr_data
@@ -107,29 +112,96 @@ class DailyPlanGenerator:
         return self._meal_search_space_base
     
     @property
+    def meal_ingredients_df(self) -> DataFrame:
+        if self._meal_ingredients.empty:
+            self._meal_ingredients = self._sql_connection.read_to_dataframe(query=model_ingredient_query())
+        return self._meal_ingredients
+
+    @property
     def objective_function_weights(self) -> Series:
         if self._obj_weights.empty:
             self._obj_weights = pd.Series(self._weight_list)
         return self._obj_weights
 
+    def generate_daily_plan(self) -> List:
+        opt_output = self.simulated_annealing()
+        #meal_plan = opt_output[0]
+        return opt_output
+
+    def generate_weekly_plan(self):
+        week_plan = {}
+        week_scores = {}
+        for day in range(7):
+            day_plan = self.generate_daily_plan()
+            week_plan[day + 1] = day_plan[0]
+            week_scores[day + 1] = day_plan[1]
+            self._add_meals_to_previous_plan_dict(meals=day_plan, day=day+1)
+        
+        return week_plan, week_scores
+
+    def generate_weekly_plan_no_past(self):
+        week_plan = {}
+        week_scores = {}
+        for day in range(7):
+            day_plan = self.generate_daily_plan()
+            week_plan[day + 1] = day_plan[0]
+            week_scores[day + 1] = day_plan[1]
+        
+        return week_plan, week_scores
+
+    def _add_meals_to_previous_plan_dict(self, meals: list, day: int) -> None:
+        target_ingredients = self._get_ingredients(meal_list=meals)
+        self.past_plans[day] = target_ingredients
+
+    def reset_past_plans(self) -> None:
+        self.past_plans = {}
+
+    def _get_ingredients(self, meal_list) -> DataFrame:
+        target_ingredients = self.meal_ingredients_df[self.meal_ingredients_df['Recipe_Id'].isin(meal_list)]
+        return target_ingredients
+
+    def _calculate_ingredient_similarity(self, meal_id_list: list) -> float:
+        ingredients_df = self._get_ingredients(meal_list=meal_id_list)
+        score = 0
+        if self.past_plans == {}:
+            return score
+        latest_day = max(self.past_plans.keys())
+        # TODO: This is temporary until we add ingredient qtys into the calc
+        for day, ing in self.past_plans.items():
+            for category in self._meal_categories:
+                past_ing_set = set(ing[ing['Meal_Category']==category]['Ingredient_Name'].unique())
+                curr_ing_set = set(ingredients_df[ingredients_df['Meal_Category']==category]['Ingredient_Name'].unique())
+                jaccard = self._calculate_jaccard(past_ing_set, curr_ing_set)
+                days_from_current = latest_day - day
+                score += jaccard * ((1-self._similarity_smoothing_factor) ** days_from_current)
+
+        return score
+
+    @staticmethod
+    def _calculate_jaccard(set_a: set, set_b: set) -> float:
+        index = len(set_a.intersection(set_b)) / len(set_a.union(set_b))
+        return index
+
     def _generate_candidate(self, current_state: DataFrame) -> list:
-        perturbation = 2 * np.random.rand(self.num_valid_nutrients) - 1.0 
+        perturbation = 4 * np.random.rand(self.num_valid_nutrients) - 2.0 
         current_meal = current_state.sample(n=1)
 
         state_list = current_state['Recipe_Id'].tolist()
+        if len(state_list) < 6:
+            print(len(state_list))
         replaced_item_loc = state_list.index(current_meal['Recipe_Id'].values[0])
 
-        current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
-
+        #current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
         current_vector = current_meal.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
         category = current_meal['Meal_Category'].values[0]
+        cat_meal_list = current_state[current_state['Meal_Category'] == category]['Recipe_Id'].tolist()
         # Exclude current state meal and turn search space df into (n, len(nutrients)) numpy array
         cat_search_space = self.meal_search_space_normalized[self.meal_search_space_normalized['Meal_Category'] == category]
-        cat_search_space = cat_search_space[cat_search_space['Recipe_Id'] != current_meal_id].reset_index(drop=True)
+        cat_search_space = cat_search_space[~cat_search_space['Recipe_Id'].isin(cat_meal_list)].reset_index(drop=True)
         vectorized_search_space = cat_search_space.drop(['Meal_Category', 'Recipe_Id'], axis=1).to_numpy()
 
         rnd_target = perturbation + current_vector
-        
+
         # Using Manhatten distance since we are in high dimensional space 
         dist = sp.distance.cdist(vectorized_search_space, rnd_target, metric='cityblock')
         closest_distance_in_cat_id = np.argmin(dist, axis=0)[0]
@@ -159,11 +231,12 @@ class DailyPlanGenerator:
         compare_df = self.blend_target_with_curr(curr_state)
 
         energy = compare_df['weighted_diff'].sum()
-
+        similarity_penalty = self._calculate_ingredient_similarity(meal_id_list=curr_state)
+        energy += similarity_penalty
         return energy
 
     # TODO: refine/complete simulated annealing algorithm
-    def simulated_annealing(self, temp):
+    def simulated_annealing(self):
         stall_counter = 0
         cutoff_threshold = 200
         # generate an initial meal set
@@ -174,12 +247,18 @@ class DailyPlanGenerator:
         best, best_eval = current_ids, current_eval
         # current working solution
         scores = []
+        pcand = []
         # run the algorithm
         for i in range(self._n_iter):
             # take a step
             candidate_ids = self._generate_candidate(current_state)
             candidate_state = self.meal_search_space_normalized[self.meal_search_space_normalized['Recipe_Id'].isin(candidate_ids)]
             # evaluate candidate point
+            if len(candidate_ids) < 6:
+                print('bp')
+                print(pcand)
+                print(current_state)
+            pcand = candidate_ids
             candidate_eval = self._calculate_energy(candidate_ids)
             stall_counter += 1
             # check for new best solution
@@ -191,7 +270,7 @@ class DailyPlanGenerator:
             # difference between candidate and current point evaluation
             diff = candidate_eval - current_eval
             # calculate temperature for current epoch
-            t = temp / float(i + 1)
+            t = self._temp / float(i + 1)
             # calculate metropolis acceptance criterion
             metropolis = exp(-diff / t)
             # check if we should keep the new point
@@ -213,8 +292,9 @@ class DailyPlanGenerator:
 
 
 if __name__ == '__main__':
+    pd.set_option('display.max_rows', None)
     test_connect = MySqlManager()
-    test_guy = NutrientRequirementManager(weight=180,
+    test_guy = NutrientRequirementManager(weight=182,
                                           height=6.08,
                                           age=26.8,
                                           gender='male',
@@ -232,41 +312,67 @@ if __name__ == '__main__':
                0.25, 1,
                0.05]
 
-    test_plan = DailyPlanGenerator(db_connection=test_connect,
+    test_plan = PlanGenerator(db_connection=test_connect,
                                     user_nutrition_targets=test_guy,
-                                    num_iterations=2500
-                                    ,nutrient_weights=weights
+                                    num_iterations=2500,
+                                    nutrient_weights=weights,
+                                    similarity_smoothing_factor=0.80
                                     )
-    
-    # seed(684768)
-    interval = 100
-    #temps = [(i+1)*interval for i in range(3)]
-    temps = [100]*4
-    bfast = []
-    lunch = []
-    dinner = []
-    score_list = []
-
-    for tmp in temps:
-        best, score, scores = test_plan.simulated_annealing(temp=tmp)
-        print('f(%s, theta) = %f' % (best, score))
         
-        bfast.append(best[0])
-        lunch.append(best[1])
-        dinner.append(best[2])
+    seed(1211112)
+    #interval = 250
+    #temps = [(i+1)*interval for i in range(4)]
+    e, e_s = test_plan.generate_weekly_plan()
+    # test_plan.reset_past_plans()
+    # n, n_s = test_plan.generate_weekly_plan_no_past()
+    for key, value in e.items():
+        print(f'{key}:')
+        query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
+        print(query_df)
+        print('')
 
-        score_list.append(score)
+    for key, value in e_s.items():
+        print(f'{key}:')
+        print(value)
+        print('')
 
-        comparison_df = test_plan.blend_target_with_curr(best)
-        comparison_df = comparison_df.drop(['pct_difference'], axis=1)
-        print(comparison_df)
+    print('-'*50)
 
-        pyplot.plot(scores, '.-')
-        pyplot.xlabel('Improvement Number')
-        pyplot.ylabel('Evaluation f(x)')
-        pyplot.show()
+    # for key, value in n.items():
+    #     print(f'{key}:')
+    #     query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
+    #     print(query_df)
+    #     print('')
+    
 
-    print(bfast)
-    print(lunch)
-    print(dinner)
-    print(score_list)
+    #test_plan.reset_past_plans()
+    # n, n_s = test_plan.generate_weekly_plan_no_past()
+    # temps = [100]
+    # bfast = []
+    # lunch = []
+    # dinner = []
+    # score_list = []
+
+    # for tmp in temps:
+    #     best, score, scores = test_plan.simulated_annealing()
+    #     print('f(%s, theta) = %f' % (best, score))
+        
+    #     bfast.append(best[0])
+    #     lunch.append(best[1])
+    #     dinner.append(best[2])
+
+    #     score_list.append(score)
+
+    #     comparison_df = test_plan.blend_target_with_curr(best)
+    #     comparison_df = comparison_df.drop(['pct_difference'], axis=1)
+    #     print(comparison_df)
+
+    #     pyplot.plot(scores, '.-')
+    #     pyplot.xlabel('Improvement Number')
+    #     pyplot.ylabel('Evaluation f(x)')
+    #     pyplot.show()
+
+    # print(bfast)
+    # print(lunch)
+    # print(dinner)
+    # print(score_list)
