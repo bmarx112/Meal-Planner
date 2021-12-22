@@ -42,7 +42,7 @@ class PlanGenerator:
         self._user_daily_vals = user_nutrition_targets
         self._user_vals_df = pd.DataFrame
         self._valid_nutrients = list(self._user_daily_vals.get_daily_requirements().keys())
-        self._num_valid_nutrients = None
+        self.num_valid_nutrients = len(self._valid_nutrients)
         self._meal_search_space_normalized = pd.DataFrame()
         self._meal_search_space_base = pd.DataFrame()
         self._meal_nutr_data = pd.DataFrame()
@@ -65,12 +65,6 @@ class PlanGenerator:
             self._user_vals_df = self._user_vals_df.reset_index()
             self._user_vals_df = self._user_vals_df.rename(columns={'index': 'Element'})                                            
         return self._user_vals_df
-
-    @property
-    def num_valid_nutrients(self) -> int:
-        if not self._num_valid_nutrients:
-            self._num_valid_nutrients = len(self._valid_nutrients)
-        return self._num_valid_nutrients
 
     @property
     def meal_nutr_data(self) -> DataFrame:  # TODO: Put these steps in a method
@@ -187,8 +181,6 @@ class PlanGenerator:
         current_meal = current_state.sample(n=1)
 
         state_list = current_state['Recipe_Id'].tolist()
-        if len(state_list) < 6:
-            print(len(state_list))
         replaced_item_loc = state_list.index(current_meal['Recipe_Id'].values[0])
 
         #current_meal_id = current_meal['Recipe_Id'].reset_index(drop=True)[0]
@@ -247,18 +239,12 @@ class PlanGenerator:
         best, best_eval = current_ids, current_eval
         # current working solution
         scores = []
-        pcand = []
         # run the algorithm
         for i in range(self._n_iter):
             # take a step
             candidate_ids = self._generate_candidate(current_state)
             candidate_state = self.meal_search_space_normalized[self.meal_search_space_normalized['Recipe_Id'].isin(candidate_ids)]
             # evaluate candidate point
-            if len(candidate_ids) < 6:
-                print('bp')
-                print(pcand)
-                print(current_state)
-            pcand = candidate_ids
             candidate_eval = self._calculate_energy(candidate_ids)
             stall_counter += 1
             # check for new best solution
