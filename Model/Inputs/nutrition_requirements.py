@@ -52,7 +52,7 @@ class NutrientRequirementManager:
         self.folate = req_folate
         self.cholesterol = req_cholesterol
         self.niacin = self._get_daily_niacin_requirements()
-        self.iron = None  # TODO: Enter logic into iron method
+        self.iron = self._get_daily_iron_requirements()
         self.magnesium = None  # TODO: Add Magnesium Method
         self.potassium = None  # TODO: Add Potassium Method
         self.thiamin = None  # TODO: Add Thiamin Method
@@ -74,7 +74,8 @@ class NutrientRequirementManager:
             'sodium': self.sodium,
             'folate': self.folate,
             'cholesterol': self.cholesterol,
-            'niacin equivalents': self.niacin
+            'niacin equivalents': self.niacin,
+            'iron': self.iron
                     }
         
         return daily_reqs
@@ -257,7 +258,6 @@ class NutrientRequirementManager:
                 req_iron = 8
         
         return req_iron
-
 
     @staticmethod
     def _calculate_nutrient_from_calories(cals: float, tgt: str, nutrient: str) -> float:
