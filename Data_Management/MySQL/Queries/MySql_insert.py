@@ -9,8 +9,10 @@ insert_meals = '''INSERT INTO Meal (Recipe_Id,
 '''
 
 insert_ingredients = '''INSERT INTO Ingredients (Recipe_Id,
-                                                 Ingredient_Name)
-                                            VALUES ( %s,%s)
+                                                 Ingredient_Name,
+                                                 Ingredient_Quantity,
+                                                 Ingredient_Unit)
+                                            VALUES ( %s,%s,%s,%s)
 '''
 
 insert_instructions = '''INSERT INTO Instructions (Recipe_Id,

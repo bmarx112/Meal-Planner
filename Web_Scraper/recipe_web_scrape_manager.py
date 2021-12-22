@@ -1,3 +1,4 @@
+from concurrent.futures.thread import ThreadPoolExecutor
 import os.path
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -12,6 +13,9 @@ from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import re
+import concurrent.futures
+import queue
+import threading
 
 __author__ = 'bmarx'
 
@@ -23,7 +27,8 @@ class RecipeWebScrapeManager:
     def __init__(self,
                  url: str = 'https://www.allrecipes.com',
                  page_limit: int = 100,
-                 choose_cats: bool = False
+                 choose_cats: bool = False,
+                 dump_limit: int = 150
                  ):
         self.base_url = url
         self._website_page_limit = page_limit
@@ -32,6 +37,8 @@ class RecipeWebScrapeManager:
         self._meal_categories = None
         self._scraped_meal_info = None
         self._choose_cats = choose_cats
+        self._pipeline = queue.Queue(maxsize=dump_limit)
+        self._scanned_sites = 0
         print('Initialized at', dt.now())
 
     @property
@@ -56,36 +63,57 @@ class RecipeWebScrapeManager:
         meal_col = MealCollection(item_limit=dump_limit, db=db)
         for category, recipe_set in self.recipe_link_dict.items():
             # iterate through each recipe in the set
-            for recipe in list(recipe_set):
-                try:
-                    meal = self._format_data_as_meal(recipe, category)
-                    meal_col.add_meals_to_collection(meal)
-                except Exception as e:
-                    logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
+            recipe_list = list(recipe_set)
+            num_rcps = len(recipe_list)
+            self._scanned_sites = 0
+            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+
+                executor.submit(self._format_meal_from_soup, category, meal_col, num_rcps)
+                executor.map(self._add_meal_to_queue, recipe_list)
+
         return meal_col
 
-    def _format_data_as_meal(self, recipe: str, cat: str) -> MealInfo:
+    def _add_meal_to_queue(self, recipe: str):  #TODO: Refactor so each thread receives own context, and context is not re-created each time the method runs!
         # Getting HTML for specific recipe page for scraping
-        sp = get_soup_from_html(recipe, self._context)
+        ctx = make_context()
+        try:
+            sp = get_soup_from_html(recipe, ctx, timeout=20)
+        except:
+            self._scanned_sites += 1
+        self._pipeline.put((recipe, sp))
 
-        meal_name = self._get_recipe_name(sp)
-        nutrition_data = self._get_nutrient_data_for_meal(sp)
-        ingredient_data = self._get_cooking_ingredients(sp)
-        instruction_dict = self._get_meal_instructions(sp)
-        scope_dict = self._get_recipe_scope(sp)
-        meal_rating = self._get_recipe_rating(sp)
-        rt_count = self._get_recipe_rating_count(sp)
+    def _format_meal_from_soup(self, cat: str, meal_col: MealCollection, rec_lng: int):
+        while rec_lng > self._scanned_sites:
+            try:
+                recipe, sp = self._pipeline.get(timeout=1)
+                self._scanned_sites += 1
+                print(recipe)
+            except:
+               print(rec_lng, self._scanned_sites)
+               continue
+            try:
+                meal_name = self._get_recipe_name(sp)
+                nutrition_data = self._get_nutrient_data_for_meal(sp)
+                ingredient_data = self._get_cooking_ingredients(sp)
+                instruction_dict = self._get_meal_instructions(sp)
+                scope_dict = self._get_recipe_scope(sp)
+                meal_rating = self._get_recipe_rating(sp)
+                rt_count = self._get_recipe_rating_count(sp)
 
-        meal = MealInfo(url=recipe,
-                        category=cat,
-                        name=meal_name,
-                        ingredients=ingredient_data,
-                        nutrition=nutrition_data,
-                        instructions=instruction_dict,
-                        scope=scope_dict,
-                        rating=meal_rating,
-                        rt_count=rt_count)
-        return meal
+                meal = MealInfo(url=recipe,
+                                category=cat,
+                                name=meal_name,
+                                ingredients=ingredient_data,
+                                nutrition=nutrition_data,
+                                instructions=instruction_dict,
+                                scope=scope_dict,
+                                rating=meal_rating,
+                                rt_count=rt_count)
+
+                meal_col.add_meals_to_collection(meal)
+            except Exception as e:
+                logger.critical(f'FAILURE TO CAPTURE {recipe}\nError: {e}')
+                continue
 
     def _get_meal_categories(self) -> dict:
         recipe_categories = {}
@@ -184,17 +212,40 @@ class RecipeWebScrapeManager:
         return content
 
     @staticmethod
-    def _get_cooking_ingredients(soup) -> list:
+    def _get_cooking_ingredients(soup) -> list[dict]:
         item_list = []
         ingredients_table = get_website_chunk_by_class(soup,
                                                        'ul',
                                                        'ingredients-section')
 
-        ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
+        #ing_components = ingredients_table.find_all('span', class_='ingredients-item-name')
+        ing_components = ingredients_table.find_all('input')
+
 
         for item in ing_components:
-            item_str = str(item.string)
-            item_list.append(item_str)
+
+            if not item['data-ingredient']:
+                continue
+
+            name = item['data-ingredient']
+
+            if not item['data-init-quantity']:
+                amt = .01
+            else:
+                amt = item['data-init-quantity']
+
+            if not item['data-unit']:  # TODO: Strip special characters, as well as plural 's' ending
+                unit = 'item'
+            else:
+                unit = item['data-unit']
+
+            info_dict = {
+                'quantity': amt,
+                'ingredient': name,
+                'unit': unit
+            }
+
+            item_list.append(info_dict)
         return item_list
 
     # TODO: Instruction steps that contain links are not populating. they appear as 'None.' Find out why!
@@ -260,9 +311,6 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=10, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
-    # df = test_connect.read_to_dataframe(pull_meals)
-
-    # print(df)
+    scr = RecipeWebScrapeManager(page_limit=3, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=15, db=test_connect)
     

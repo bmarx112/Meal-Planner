@@ -9,7 +9,7 @@ from Data_Management.MySQL.Queries.MySql_init import init_query
 from Data_Management.MySQL.Queries.MySql_insert import (insert_meals, insert_ingredients, 
                                                         insert_instructions, insert_nutrition, insert_mealscope)
 import logging
-from Data_Management.MySQL.Queries.MySql_model_input import model_input_query
+from Data_Management.MySQL.Queries.MySql_model_input import model_nutrition_query_with_doubled
 
 
 __author__ = 'bmarx'
@@ -110,10 +110,12 @@ class MySqlManager:
     def _bulk_insert_ingredients(self, data) -> None:
         injection = []
         for ing in data:
-            for element in ing['ingredient_list']:
+            for element in ing['ingredient_dict_list']:
                 mealdata = (
                             ing['recipe_id'],
-                            element
+                            element['ingredient'],
+                            element['quantity'],
+                            element['unit']
                             )
                 injection.append(mealdata)
         self.execute_query(insert_ingredients, injection)
@@ -165,5 +167,5 @@ class MySqlManager:
 if __name__ == '__main__':
     test_connect = MySqlManager()
     ls = ['Calories', 'carbohydrates', 'fat', 'saturated fat', 'protein', 'sugar', 'calcium', 'dietary fiber', 'vitamin a iu', 'vitamin c', 'vitamin b6', 'sodium', 'folate', 'cholesterol', 'niacin equivalents']
-    df_output = test_connect.read_to_dataframe(query=model_input_query(ls))
+    df_output = test_connect.read_to_dataframe(query=model_nutrition_query_with_doubled(ls))
     print(df_output)

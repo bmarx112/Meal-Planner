@@ -20,13 +20,14 @@ def make_context() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
 
-@retry(tries=3)
-def get_soup_from_html(url: str, ct, suffix: str = ''):
+
+@retry(tries=5)
+def get_soup_from_html(url: str, ct, suffix: str = '', timeout: float = 30):
     formatted_url = url + suffix
-    with urlopen(formatted_url, context=ct) as html:
+    with urlopen(formatted_url, context=ct, timeout=timeout) as html:
         page = html.read()
         soup = BeautifulSoup(page, "html.parser")
-    return soup
+        return soup
 
 
 def find_in_url(url: str,
