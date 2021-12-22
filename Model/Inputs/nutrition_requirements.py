@@ -200,6 +200,65 @@ class NutrientRequirementManager:
         
         return req_niacin
 
+    def _get_daily_iron_requirements(self) -> float:
+
+        if self._gender == 'male':
+            if self._age <= 0.5:
+                req_iron = 0.27
+            elif self._age <= 1.0:
+                req_iron = 11
+            elif self._age <= 3.0:
+                req_iron = 7
+            elif self._age <= 8:
+                req_iron = 10
+            elif self._age <= 13:
+                req_iron = 8
+            elif self._age <= 18:
+                req_iron = 11
+            else:
+                req_iron = 8
+            
+
+        elif self._gender == 'female':
+            if self._age <= 0.5:
+                req_iron = 0.27
+            elif self._age <= 1.0:
+                req_iron = 11
+            elif self._age <= 3.0:
+                req_iron = 7
+            elif self._age <= 8:
+                req_iron = 10
+            elif self._age <= 13:
+                req_iron = 8
+            elif self._age <= 18:
+                req_iron = 15
+            elif self._age <= 50:
+                req_iron = 18
+            else:
+                req_iron = 8
+        
+        else:
+            logger.info('No gender specified')
+            if self._age <= 0.5:
+                req_iron = 0.27
+            elif self._age <= 1.0:
+                req_iron = 11
+            elif self._age <= 3.0:
+                req_iron = 7
+            elif self._age <= 8:
+                req_iron = 10
+            elif self._age <= 13:
+                req_iron = 8
+            elif self._age <= 18:
+                req_iron = 13
+            elif self._age <= 50:
+                req_iron = 13
+            else:
+                req_iron = 8
+        
+        return req_iron
+
+
     @staticmethod
     def _calculate_nutrient_from_calories(cals: float, tgt: str, nutrient: str) -> float:
         '''
