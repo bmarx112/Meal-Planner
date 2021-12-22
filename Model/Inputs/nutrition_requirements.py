@@ -29,124 +29,34 @@ class NutrientRequirementManager:
         self._gender = gender.lower() if gender else None
         self._weight_goal = weight_goal.lower()
         self._activity_level = activity.lower()
-        self._calories = None
-        self._sugars = None
-        self._carbohydrates = None
-        self._proteins = None
-        self._fat = None
-        self._saturated_fat = None
-        self._calcium = None
-        self._dietary_fiber = None
-        self._vitamin_a = None
-        self._vitamin_c = None
-        self._vitamin_b6 = None
-        self._sodium = None
-        self._folate = None
-        self._cholesterol = None
-        self._niacin = None
-        self._iron = None  # TODO: Enter logic into iron method
-        self._magnesium = None  # TODO: Add Magnesium Method
-        self._potassium = None  # TODO: Add Potassium Method
-        self._thiamin = None  # TODO: Add Thiamin Method
-
-
-    @property
-    def calories(self):
-        if not self._calories:
-            self._calories = self._get_calorie_requirements()
-        return self._calories
-
-    @property
-    def carbohydrates(self):
-        if not self._carbohydrates:
-            self._carbohydrates = self._calculate_nutrient_from_calories(cals=self.calories,
+        self.calories = self._get_calorie_requirements()
+        self.sugar = self._get_daily_sugar_requirements()
+        self.carbohydrates = self._calculate_nutrient_from_calories(cals=self.calories,
                                                                         tgt=self._weight_goal, 
                                                                         nutrient='carbs')
-        return self._carbohydrates
-
-    @property
-    def fat(self):
-        if not self._fat:
-            self._fat = self._calculate_nutrient_from_calories(cals=self.calories,
-                                                                tgt=self._weight_goal, 
-                                                                nutrient='fat')
-        return self._fat
-
-    @property
-    def protein(self):
-        if not self._proteins:
-            self._proteins = self._calculate_nutrient_from_calories(cals=self.calories,
+        self.protein = self._calculate_nutrient_from_calories(cals=self.calories,
                                                                     tgt=self._weight_goal, 
                                                                     nutrient='protein')
-        return self._proteins
-    
-    @property
-    def saturated_fat(self):
-        if not self._saturated_fat:
-            self._saturated_fat = self._calculate_nutrient_from_calories(cals=self.calories,
+        self.fat = self._calculate_nutrient_from_calories(cals=self.calories,
+                                                                tgt=self._weight_goal, 
+                                                                nutrient='fat')
+        self.saturated_fat = self._calculate_nutrient_from_calories(cals=self.calories,
                                                                     tgt=self._weight_goal, 
                                                                     nutrient='saturated_fat')
-        return self._saturated_fat
+        self.calcium = req_calcium
+        self.dietary_fiber = self._get_daily_fiber_requirements()
+        self.vitamin_a = self._get_daily_vitamin_a_requirements()
+        self.vitamin_c = req_vit_c
+        self.vitamin_b6 = self._get_daily_vitamin_b6_requirements()
+        self.sodium = req_sodium
+        self.folate = req_folate
+        self.cholesterol = req_cholesterol
+        self.niacin = self._get_daily_niacin_requirements()
+        self.iron = None  # TODO: Enter logic into iron method
+        self.magnesium = None  # TODO: Add Magnesium Method
+        self.potassium = None  # TODO: Add Potassium Method
+        self.thiamin = None  # TODO: Add Thiamin Method
 
-    @property
-    def sugar(self):
-        if not self._sugars:
-            self._sugars = self._get_daily_sugar_requirements()
-        return self._sugars
-
-    @property
-    def calcium(self):
-        if not self._calcium:
-            self._calcium = req_calcium
-        return self._calcium
-
-    @property
-    def cholesterol(self):
-        if not self._cholesterol:
-            self._cholesterol = req_cholesterol
-        return self._cholesterol
-
-    @property
-    def vitamin_c(self):
-        if not self._vitamin_c:
-            self._vitamin_c = req_vit_c
-        return self._vitamin_c
-
-    @property
-    def sodium(self):
-        if not self._sodium:
-            self._sodium = req_sodium
-        return self._sodium
-
-    @property
-    def folate(self):
-        if not self._folate:
-            self._folate = req_folate
-        return self._folate
-
-    @property
-    def vitamin_b6(self):
-        if not self._vitamin_b6:
-            self._vitamin_b6 = self._get_daily_vitamin_b6_requirements()
-        return self._vitamin_b6
-
-    @property
-    def dietary_fiber(self):
-        if not self._dietary_fiber:
-            self._dietary_fiber = self._get_daily_fiber_requirements()
-        return self._dietary_fiber
-
-    @property
-    def vitamin_a(self):
-        if not self._vitamin_a:
-            self._vitamin_a = self._get_daily_vitamin_a_requirements()
-        return self._vitamin_a
-        
-    @property
-    def niacin(self):
-        if not self._niacin:
-            self._niacin = self._get_daily_niacin_requirements()
-        return self._niacin    
 
     def get_daily_requirements(self) -> dict:  # TODO: Add remaining nutrients to dict
         daily_reqs = {

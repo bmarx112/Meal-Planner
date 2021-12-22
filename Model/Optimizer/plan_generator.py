@@ -19,7 +19,7 @@ from matplotlib import pyplot, use
 from Utilities.helper_functions import cartesian_product_generalized
 from Model.Inputs.nutrition_requirements import NutrientRequirementManager
 from Data_Management.MySQL.mysql_manager import MySqlManager
-from Data_Management.MySQL.Queries.MySql_model_input import model_ingredient_query, model_nutrition_query_with_doubled, model_output_recipe_names
+from Data_Management.MySQL.Queries.MySql_model_input import model_ingredient_query, model_nutrition_query_with_doubled, model_output_recipe_names, model_nutrition_query_with_doubled_and_tripled
 
 import logging
 
@@ -308,57 +308,48 @@ if __name__ == '__main__':
     seed(1211112)
     #interval = 250
     #temps = [(i+1)*interval for i in range(4)]
-    e, e_s = test_plan.generate_weekly_plan()
-    # test_plan.reset_past_plans()
-    # n, n_s = test_plan.generate_weekly_plan_no_past()
-    for key, value in e.items():
-        print(f'{key}:')
-        query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
-        print(query_df)
-        print('')
-
-    for key, value in e_s.items():
-        print(f'{key}:')
-        print(value)
-        print('')
-
-    print('-'*50)
-
-    # for key, value in n.items():
+    # e, e_s = test_plan.generate_weekly_plan()
+    # # test_plan.reset_past_plans()
+    # # n, n_s = test_plan.generate_weekly_plan_no_past()
+    # for key, value in e.items():
     #     print(f'{key}:')
     #     query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
     #     print(query_df)
     #     print('')
-    
 
-    #test_plan.reset_past_plans()
-    # n, n_s = test_plan.generate_weekly_plan_no_past()
-    # temps = [100]
-    # bfast = []
-    # lunch = []
-    # dinner = []
-    # score_list = []
+    # for key, value in e_s.items():
+    #     print(f'{key}:')
+    #     print(value)
+    #     print('')
 
-    # for tmp in temps:
-    #     best, score, scores = test_plan.simulated_annealing()
-    #     print('f(%s, theta) = %f' % (best, score))
+    # print('-'*50)
+
+    temps = [100]*5
+    bfast = []
+    lunch = []
+    dinner = []
+    score_list = []
+
+    for tmp in temps:
+        best, score, scores = test_plan.simulated_annealing()
+        print('f(%s, theta) = %f' % (best, score))
         
-    #     bfast.append(best[0])
-    #     lunch.append(best[1])
-    #     dinner.append(best[2])
+        bfast.append(best[0])
+        lunch.append(best[1])
+        dinner.append(best[2])
 
-    #     score_list.append(score)
+        score_list.append(score)
 
-    #     comparison_df = test_plan.blend_target_with_curr(best)
-    #     comparison_df = comparison_df.drop(['pct_difference'], axis=1)
-    #     print(comparison_df)
+        comparison_df = test_plan.blend_target_with_curr(best)
+        comparison_df = comparison_df.drop(['pct_difference'], axis=1)
+        print(comparison_df)
 
-    #     pyplot.plot(scores, '.-')
-    #     pyplot.xlabel('Improvement Number')
-    #     pyplot.ylabel('Evaluation f(x)')
-    #     pyplot.show()
+        pyplot.plot(scores, '.-')
+        pyplot.xlabel('Improvement Number')
+        pyplot.ylabel('Evaluation f(x)')
+        pyplot.show()
 
-    # print(bfast)
-    # print(lunch)
-    # print(dinner)
-    # print(score_list)
+    print(bfast)
+    print(lunch)
+    print(dinner)
+    print(score_list)
