@@ -1,4 +1,4 @@
-def model_nutrition_query_with_doubled(nutrients: list) -> str:
+def model_nutrition_query_with_doubled(nutrients: list, calorie_cutoff: float = 1000) -> str:
     
     valid_elements = '(\'' + '\', \''.join(nutrients) + '\')'
 
@@ -9,6 +9,12 @@ def model_nutrition_query_with_doubled(nutrients: list) -> str:
     ON m.Recipe_Id = n.Recipe_Id
     WHERE m.Meal_Category IN ('breakfast and brunch', 'lunch', 'dinner')
     AND n.Element IN {valid_elements}
+    AND m.Recipe_Id in  (
+        SELECT n.Recipe_Id
+        from nutrition n
+        where n.Element = 'Calories' AND n.Quantity <= {calorie_cutoff}
+        GROUP BY n.Recipe_Id
+    )
     UNION ALL
     SELECT m.Meal_Category, CONCAT(m.Recipe_Id, '_2') as Recipe_Id, n.Element, n.Quantity * 2 as Quantity
     FROM Meal m
@@ -16,6 +22,12 @@ def model_nutrition_query_with_doubled(nutrients: list) -> str:
     ON m.Recipe_Id = n.Recipe_Id
     WHERE m.Meal_Category IN ('breakfast and brunch', 'lunch', 'dinner')
     AND n.Element IN {valid_elements}
+    AND m.Recipe_Id in  (
+        SELECT n.Recipe_Id
+        from nutrition n
+        where n.Element = 'Calories' AND n.Quantity <= {calorie_cutoff}
+        GROUP BY n.Recipe_Id
+    )
     '''
 
     return pull_nutrients

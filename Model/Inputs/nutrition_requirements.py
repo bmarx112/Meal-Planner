@@ -253,7 +253,7 @@ class NutrientRequirementManager:
             elif self._age <= 18:
                 req_iron = 13
             elif self._age <= 50:
-                req_iron = 13
+                req_iron = 14
             else:
                 req_iron = 8
         
@@ -303,7 +303,7 @@ class NutrientRequirementManager:
 
 if __name__ == '__main__':
     
-    test_guy = NutrientRequirementManager(weight=177,
+    test_guy = NutrientRequirementManager(weight=182,
                                           height=6.08,
                                           age=26.5,
                                           gender='male',

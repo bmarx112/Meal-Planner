@@ -87,7 +87,7 @@ class RecipeWebScrapeManager:
             try:
                 recipe, sp = self._pipeline.get(timeout=1)
                 self._scanned_sites += 1
-                print(recipe)
+                # print(recipe)
             except:
                print(rec_lng, self._scanned_sites)
                continue
@@ -311,6 +311,6 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner_test')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=3, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=15, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=300, choose_cats=True)
+    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
     
