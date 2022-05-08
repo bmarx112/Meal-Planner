@@ -60,12 +60,6 @@ lblabel.grid(column=0, row=0, sticky=W)
 lbox = Listbox(db_frame, listvariable=cat_list, selectmode='extended', height=15)
 lbox.grid(column=0, row=1, rowspan=6, sticky=(N,S,E,W))
 
-feet_entry = ttk.Entry(db_frame, width=7, textvariable=feet)
-feet_entry.grid(column=2, row=1, sticky=(W, E))
-
-mtlabel = ttk.Label(db_frame, textvariable=meters)
-mtlabel.grid(column=2, row=2, sticky=(W, E))
-
 cat_entry = ttk.Button(db_frame, text="Use Selected Categories", command=select_categories_for_scrape)
 cat_entry.grid(column=0, row=8)
 
