@@ -23,7 +23,7 @@ class MySqlManager:
                  user: str = 'root',
                  password: str = None,
                  host: str = '127.0.0.1',
-                 database: str = 'MealPlanner') -> None:
+                 database: str = 'mealplanner') -> None:
         self.username = user
         self._password = password
         self.host = host

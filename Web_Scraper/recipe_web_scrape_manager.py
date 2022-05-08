@@ -13,7 +13,6 @@ from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import re
-import concurrent.futures
 import queue
 import threading
 
@@ -31,27 +30,31 @@ class RecipeWebScrapeManager:
                  dump_limit: int = 150
                  ):
         self.base_url = url
-        self._website_page_limit = page_limit
+        self.website_page_limit = page_limit
+        self.dump_limit = dump_limit
         self._context = make_context()
         self._recipe_link_dict = None
-        self._meal_categories = None
+        self.meal_categories = None
         self._scraped_meal_info = None
         self._choose_cats = choose_cats
-        self._pipeline = queue.Queue(maxsize=dump_limit)
+        self._pipeline = queue.Queue(maxsize=self.dump_limit)
         self._scanned_sites = 0
-        print('Initialized at', dt.now())
-
-    @property
-    def meal_categories(self):
-        if self._meal_categories is None:
-            self._meal_categories = self._get_meal_categories()
-        return self._meal_categories
+        self.all_categories = self._get_meal_categories()
+        #print('Initialized at', dt.now())
 
     @property
     def recipe_link_dict(self):
         if self._recipe_link_dict is None:
             self._recipe_link_dict = self._get_recipe_links()
         return self._recipe_link_dict
+
+    def set_categories_from_index_set(self, index_set: set) -> None:
+        new_cats = {}
+        for id, (key, value) in enumerate(self.all_categories.items()):
+            if id in index_set:
+                new_cats[key] = value
+        
+        self.meal_categories = new_cats
 
     @timeit
     def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
@@ -66,7 +69,7 @@ class RecipeWebScrapeManager:
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
             self._scanned_sites = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+            with ThreadPoolExecutor(max_workers=11) as executor:
 
                 executor.submit(self._format_meal_from_soup, category, meal_col, num_rcps)
                 executor.map(self._add_meal_to_queue, recipe_list)
@@ -87,7 +90,6 @@ class RecipeWebScrapeManager:
             try:
                 recipe, sp = self._pipeline.get(timeout=1)
                 self._scanned_sites += 1
-                # print(recipe)
             except:
                print(rec_lng, self._scanned_sites)
                continue
@@ -126,12 +128,7 @@ class RecipeWebScrapeManager:
         for tag in tags:
             link = tag.get('href')
             cat = find_in_url(link)
-            if self._choose_cats:
-                add = input(f'Include recipes in: {cat}? Y/N')
-                if add.lower() == 'y':
-                    recipe_categories[cat] = link
-            else:
-                recipe_categories[cat] = link
+            recipe_categories[cat] = link
 
         return recipe_categories
 
@@ -142,7 +139,7 @@ class RecipeWebScrapeManager:
             page_num = 1
             valid_page = True
 
-            while valid_page and page_num <= self._website_page_limit:
+            while valid_page and page_num <= self.website_page_limit:
                 page = '?page=' + str(page_num)
                 try:
                     option_page = get_soup_from_html(lnk, self._context, page)

@@ -273,12 +273,12 @@ class PlanGenerator:
 if __name__ == '__main__':
     pd.set_option('display.max_rows', None)
     test_connect = MySqlManager(database='mealplanner')
-    test_guy = NutrientRequirementManager(weight=182,
-                                          height=6.08,
-                                          age=27,
-                                          gender='male',
-                                          weight_goal='gain',
-                                          activity='medium',
+    test_guy = NutrientRequirementManager(weight=140,
+                                          height=5.8,
+                                          age=23,
+                                          gender='female',
+                                          weight_goal='maintain',
+                                          activity='high',
                                           wgt_unit='lb',
                                           hgt_unit='ft')
 
@@ -295,45 +295,44 @@ if __name__ == '__main__':
                                     user_nutrition_targets=test_guy,
                                     num_iterations=2500,
                                     nutrient_weights=weights,
-                                    similarity_smoothing_factor=0.80,
+                                    similarity_smoothing_factor=0,
                                     temp=100,
-                                    z_score_perturbation=1.2                                    )
+                                    z_score_perturbation=1.2)
 
-    # interval = 250
-    # temps = [(i+1)*interval for i in range(4)]
-    # e, e_s = test_plan.generate_weekly_plan()
-    # # test_plan.reset_past_plans()
-    # # n, n_s = test_plan.generate_weekly_plan_no_past()
-    # rec_count = defaultdict(int)
-    # for key, value in e.items():
-    #     print(f'{key}:')
-    #     query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
-    #     for l, i in query_df['Recipe_Id'].items():
-    #         rec_count[i] += 1
-    #     print(query_df)
-    #     print('')
+    interval = 250
+    temps = [(i+1)*interval for i in range(4)]
+    e, e_s = test_plan.generate_weekly_plan()
+    # test_plan.reset_past_plans()
+    # n, n_s = test_plan.generate_weekly_plan_no_past()
+    rec_count = defaultdict(int)
+    for key, value in e.items():
+        print(f'{key}:')
+        query_df = test_plan._sql_connection.read_to_dataframe(query=model_output_recipe_names(value))
+        for l, i in query_df['Recipe_Id'].items():
+            rec_count[i] += 1
+        print(query_df)
+        print('')
 
-    # for key, value in e_s.items():
-    #     print(f'{key}:')
-    #     print(value)
+    for key, value in e_s.items():
+        print(f'{key}: {value}')
 
-    #print(i for i, ct in rec_count.items() if ct > 1)
-    temps = [100]*5
-    score_list = []
-    print('begin annealing')
-    for tmp in temps:
-        best, score, scores = test_plan.simulated_annealing()
-        print('f(%s, theta) = %f' % (best, score))
+    print(i.next() for i, ct in rec_count.items() if ct > 1)
+    # temps = [100]*5
+    # score_list = []
+    # print('begin annealing')
+    # for tmp in temps:
+    #     best, score, scores = test_plan.simulated_annealing()
+    #     print('f(%s, theta) = %f' % (best, score))
         
-        score_list.append(score)
+    #     score_list.append(score)
 
-        comparison_df = test_plan.blend_target_with_curr(best)
-        comparison_df = comparison_df.drop(['pct_difference'], axis=1)
-        #print(comparison_df)
+    #     comparison_df = test_plan.blend_target_with_curr(best)
+    #     comparison_df = comparison_df.drop(['pct_difference'], axis=1)
+    #     #print(comparison_df)
 
-        # pyplot.plot(scores, '.-')
-        # pyplot.xlabel('Improvement Number')
-        # pyplot.ylabel('Evaluation f(x)')
-        # pyplot.show()
+    #     # pyplot.plot(scores, '.-')
+    #     # pyplot.xlabel('Improvement Number')
+    #     # pyplot.ylabel('Evaluation f(x)')
+    #     # pyplot.show()
 
-    print(score_list)
+    # print(score_list)

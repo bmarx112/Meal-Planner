@@ -109,3 +109,12 @@ def model_output_recipe_names(nutrients: list) -> str:
     '''
 
     return pull_names
+
+def recipes_in_database() -> str:
+
+    recipe_count = '''
+        SELECT COUNT(Recipe_Id) as count
+        FROM Meal
+    '''
+
+    return recipe_count
