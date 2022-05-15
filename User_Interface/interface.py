@@ -1,3 +1,7 @@
+from concurrent.futures import Future
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
+import time
 from tkinter import *
 from tkinter import ttk
 
@@ -11,26 +15,41 @@ from Web_Scraper.recipe_web_scrape_manager import RecipeWebScrapeManager
 
 ui_web_scraper = RecipeWebScrapeManager()
 ui_sql_manager = MySqlManager()
-
-count_df = ui_sql_manager.read_to_dataframe(query=recipes_in_database())
-recipe_num = count_df['count'].values[0]
 all_cats = tuple([i for i in ui_web_scraper.all_categories.keys()])
+# TODO: Make app class 
 
-
-def update_web_scraper(*args):
-    ui_web_scraper.base_url = url.get()
-    ui_web_scraper.website_page_limit = int(page_lmt.get())
-    ui_web_scraper.dump_limit = int(chunk_size.get())
+def run_web_scraper(*args):    
+    set_scrape_parameters()
+    ui_sql_manager.rebuild_database()
+    pbar.start()
+    ptext['text'] = 'Capturing Recipe Data...'
+        
+    ui_web_scraper.dump_scrape_data_to_db(ui_sql_manager)
+    ptext['text'] = 'Capture Complete.'
+    pbar.stop()
+    
+def monitor_scrape_status(thread: Future):
+    
+    while thread.running():
+        ptext['text'] = 'Capturing Recipe Data...'
+        time.sleep(8)
+    if thread.done():
+        ptext['text'] = 'Capture Complete.'
+    pbar.stop()
 
 def select_categories_for_scrape():
     selected_cats = set(lbox.curselection())
     ui_web_scraper.set_categories_from_index_set(index_set=selected_cats)
-    print(ui_web_scraper.meal_categories)
+
+def set_scrape_parameters():
+    ui_web_scraper.website_page_limit = int(page_lmt.get())
+    ui_web_scraper.dump_limit = int(chunk_size.get())
+    select_categories_for_scrape()
 
 # Intitialization
 root = Tk()
 root.option_add('*tearOff', FALSE)
-root.title("Meal Planner Control")
+root.title('Meal Planner Control')
 
 # Define tkinter variables
 feet = StringVar(value=100)
@@ -54,18 +73,33 @@ db_frame.grid(column=0, row=0, sticky=(N, W, E, S))
 root.columnconfigure(0, weight=1)
 root.rowconfigure(0, weight=1)
 
-lblabel = ttk.Label(db_frame, text="Select Meal Categories:")
-lblabel.grid(column=0, row=0, sticky=W)
+# TODO: Add Progress bar/indicator for scrape process 
+catlabel = ttk.Label(db_frame, text="Select Meal Categories:")
+catlabel.grid(column=0, row=2, sticky=W)
+
+pglable = ttk.Label(db_frame, text="Determine Num Web Pages to Parse:")
+pglable.grid(column=0, row=0, sticky=W)
+
+cklable = ttk.Label(db_frame, text="Determine Chunk Size for SQL Upload:")
+cklable.grid(column=0, row=1, sticky=W)
+
+pg_limit = ttk.Entry(db_frame, textvariable=page_lmt)
+pg_limit.grid(column=1, row=0, sticky=W)
+
+ck_size = ttk.Entry(db_frame, textvariable=chunk_size)
+ck_size.grid(column=1, row=1, sticky=W)
 
 lbox = Listbox(db_frame, listvariable=cat_list, selectmode='extended', height=15)
-lbox.grid(column=0, row=1, rowspan=6, sticky=(N,S,E,W))
+lbox.grid(column=0, row=3, rowspan=6, sticky=(N,S,E,W))
 
-cat_entry = ttk.Button(db_frame, text="Use Selected Categories", command=select_categories_for_scrape)
-cat_entry.grid(column=0, row=8)
+ptext = ttk.Label(db_frame, text='Data Capture Not Started.')
+ptext.grid(column=3, row=0, sticky=W)
+pbar = ttk.Progressbar(db_frame, orient=HORIZONTAL, length=100, mode='indeterminate')
+pbar.grid(column=3, row=1, sticky=W)
 
-rec = ttk.Label(db_frame, text=recipe_num)
-rec.grid(column=2, row=3)
+generate_data = ttk.Button(db_frame, text="Get Recipes", command=run_web_scraper)
+generate_data.grid(column=0, row=10)
 
-cat_entry.bind("<Return>", select_categories_for_scrape)
+generate_data.bind("<Return>", run_web_scraper)
 
 root.mainloop()

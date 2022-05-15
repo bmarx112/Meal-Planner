@@ -7,14 +7,12 @@ from Utilities.web_assist import (prepend_root_to_url, make_context, get_soup_fr
                                   get_website_chunk_by_class, format_dict_from_soup)
 from Utilities.helper_functions import timeit
 from datetime import datetime as dt
-from typing import Union
 from Objects.meal_info import MealInfo
 from Objects.meal_collection import MealCollection
 from Data_Management.MySQL.mysql_manager import MySqlManager
 import logging
 import re
 import queue
-import threading
 
 __author__ = 'bmarx'
 
@@ -26,27 +24,15 @@ class RecipeWebScrapeManager:
     def __init__(self,
                  url: str = 'https://www.allrecipes.com',
                  page_limit: int = 100,
-                 choose_cats: bool = False,
                  dump_limit: int = 150
                  ):
         self.base_url = url
         self.website_page_limit = page_limit
         self.dump_limit = dump_limit
         self._context = make_context()
-        self._recipe_link_dict = None
         self.meal_categories = None
-        self._scraped_meal_info = None
-        self._choose_cats = choose_cats
-        self._pipeline = queue.Queue(maxsize=self.dump_limit)
         self._scanned_sites = 0
         self.all_categories = self._get_meal_categories()
-        #print('Initialized at', dt.now())
-
-    @property
-    def recipe_link_dict(self):
-        if self._recipe_link_dict is None:
-            self._recipe_link_dict = self._get_recipe_links()
-        return self._recipe_link_dict
 
     def set_categories_from_index_set(self, index_set: set) -> None:
         new_cats = {}
@@ -57,14 +43,16 @@ class RecipeWebScrapeManager:
         self.meal_categories = new_cats
 
     @timeit
-    def dump_scrape_data_to_db(self, db: MySqlManager, dump_limit: int = 100) -> None:
-        meals_from_scrape = self._upload_to_mysql(db, dump_limit)
+    def dump_scrape_data_to_db(self, db: MySqlManager) -> None:
+        meals_from_scrape = self._upload_to_mysql(db)
         if len(meals_from_scrape.collection) > 0:
             meals_from_scrape.dump_data_to_db()
 
-    def _upload_to_mysql(self, db: MySqlManager, dump_limit: Union[None, int] = 100):
-        meal_col = MealCollection(item_limit=dump_limit, db=db)
-        for category, recipe_set in self.recipe_link_dict.items():
+    def _upload_to_mysql(self, db: MySqlManager):
+        self._pipeline = queue.Queue(maxsize=1000)
+        recipe_link_dict = self._get_recipe_links()
+        meal_col = MealCollection(item_limit=self.dump_limit, db=db)
+        for category, recipe_set in recipe_link_dict.items():
             # iterate through each recipe in the set
             recipe_list = list(recipe_set)
             num_rcps = len(recipe_list)
@@ -85,7 +73,9 @@ class RecipeWebScrapeManager:
             self._scanned_sites += 1
         self._pipeline.put((recipe, sp))
 
-    def _format_meal_from_soup(self, cat: str, meal_col: MealCollection, rec_lng: int):
+    def _format_meal_from_soup(self, cat: str, 
+                               meal_col: MealCollection, 
+                               rec_lng: int):
         while rec_lng > self._scanned_sites:
             try:
                 recipe, sp = self._pipeline.get(timeout=1)
@@ -150,7 +140,6 @@ class RecipeWebScrapeManager:
 
                 tgs = option_page('a')
                 for tg in tgs:
-
                     try:
                         class_logic = tg.get('class')[0]  # Class is needed, so skip if not there
                     except:
@@ -308,6 +297,6 @@ class RecipeWebScrapeManager:
 if __name__ == '__main__':
     test_connect = MySqlManager(database='mealplanner')
     test_connect.rebuild_database()
-    scr = RecipeWebScrapeManager(page_limit=300, choose_cats=True)
-    scr.dump_scrape_data_to_db(dump_limit=100, db=test_connect)
+    scr = RecipeWebScrapeManager(page_limit=300)
+    scr.dump_scrape_data_to_db(db=test_connect)
     
